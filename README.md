@@ -50,26 +50,30 @@ unzip -p ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar META-INF/MANIFEST.MF | grep Implem
 
 ### 3. Authenticate
 
-Place your OAuth credentials file as `gcp-oauth.keys.json` in `~/.gcal-gmail-mcp/`, then run:
+Place your OAuth credentials file as `gcp-oauth.keys.json` in `~/.gcal-gmail-mcp/`, or set the `GOOGLE_OAUTH_PATH` environment variable to point to a shared location (e.g., `~/.google-oauth/gcp-oauth.keys.json`).
+
+Then run:
 
 ```bash
 java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar auth
+```
+
+Or with a custom OAuth path:
+
+```bash
+GOOGLE_OAUTH_PATH=/Users/yourusername/.google-oauth/gcp-oauth.keys.json java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar auth
 ```
 
 This will:
 1. Open a browser for Google OAuth consent
 2. Store your credentials in `~/.gcal-gmail-mcp/credentials.json`
 
-You can also specify a custom callback URL:
-
-```bash
-java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar auth https://your.domain/oauth2callback
-```
-
 #### Environment Variables
 
 - `GOOGLE_OAUTH_PATH` - Path to OAuth client credentials JSON (default: `~/.gcal-gmail-mcp/gcp-oauth.keys.json`)
 - `GMAIL_CREDENTIALS_PATH` - Path to store user credentials (default: `~/.gcal-gmail-mcp/credentials.json`)
+
+**Note:** Environment variables must use absolute paths (e.g., `/Users/yourusername/...`). Tilde (`~`) expansion is not supported.
 
 ### 4. Configure your MCP client
 
@@ -82,33 +86,17 @@ Add to your MCP client configuration (e.g., `~/.claude/mcp.json` for Claude Code
       "command": "java",
       "args": [
         "-jar",
-        "~/.gcal-gmail-mcp/gcal-gmail-mcp.jar"
-      ]
-    }
-  }
-}
-```
-
-Note: Replace `~` with your actual home directory path (e.g., `/Users/yourusername` on macOS).
-
-With a custom OAuth path:
-
-```json
-{
-  "mcpServers": {
-    "gcal-gmail": {
-      "command": "java",
-      "args": [
-        "-jar",
         "/Users/yourusername/.gcal-gmail-mcp/gcal-gmail-mcp.jar"
       ],
       "env": {
-        "GOOGLE_OAUTH_PATH": "/path/to/your/gcp-oauth.keys.json"
+        "GOOGLE_OAUTH_PATH": "/Users/yourusername/.google-oauth/gcp-oauth.keys.json"
       }
     }
   }
 }
 ```
+
+**Note:** Use absolute paths. Replace `/Users/yourusername` with your actual home directory path.
 
 ## Available Tools
 
