@@ -35,20 +35,25 @@ A Model Context Protocol (MCP) server that provides Gmail and Google Calendar ac
 4. Go to "Credentials" and create an OAuth 2.0 Client ID (Desktop app type)
 5. Download the credentials JSON file
 
-### 2. Build the project
+### 2. Build and install
 
 ```bash
-./gradlew build
+./gradlew install
 ```
 
-The fat JAR will be created at `build/libs/gmail-mcp-kotlin-0.1.0.jar`.
+This builds the fat JAR and installs it to `~/.gcal-gmail-mcp/gcal-gmail-mcp.jar`.
+
+To check the installed version:
+```bash
+unzip -p ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar META-INF/MANIFEST.MF | grep Implementation-Version
+```
 
 ### 3. Authenticate
 
-Place your OAuth credentials file as `gcp-oauth.keys.json` in the current directory or `~/.gcal-gmail-mcp/`, then run:
+Place your OAuth credentials file as `gcp-oauth.keys.json` in `~/.gcal-gmail-mcp/`, then run:
 
 ```bash
-java -jar build/libs/gmail-mcp-kotlin-0.1.0.jar auth
+java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar auth
 ```
 
 This will:
@@ -58,13 +63,13 @@ This will:
 You can also specify a custom callback URL:
 
 ```bash
-java -jar build/libs/gmail-mcp-kotlin-0.1.0.jar auth https://your.domain/oauth2callback
+java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar auth https://your.domain/oauth2callback
 ```
 
 #### Environment Variables
 
-- `GOOGLE_OAUTH_PATH` - Path to OAuth client credentials JSON
-- `GMAIL_CREDENTIALS_PATH` - Path to store user credentials
+- `GOOGLE_OAUTH_PATH` - Path to OAuth client credentials JSON (default: `~/.gcal-gmail-mcp/gcp-oauth.keys.json`)
+- `GMAIL_CREDENTIALS_PATH` - Path to store user credentials (default: `~/.gcal-gmail-mcp/credentials.json`)
 
 ### 4. Configure your MCP client
 
@@ -77,12 +82,14 @@ Add to your MCP client configuration (e.g., `~/.claude/mcp.json` for Claude Code
       "command": "java",
       "args": [
         "-jar",
-        "/path/to/gcal-gmail-mcp/build/libs/gmail-mcp-kotlin-0.1.0.jar"
+        "~/.gcal-gmail-mcp/gcal-gmail-mcp.jar"
       ]
     }
   }
 }
 ```
+
+Note: Replace `~` with your actual home directory path (e.g., `/Users/yourusername` on macOS).
 
 With a custom OAuth path:
 
@@ -93,7 +100,7 @@ With a custom OAuth path:
       "command": "java",
       "args": [
         "-jar",
-        "/path/to/gcal-gmail-mcp/build/libs/gmail-mcp-kotlin-0.1.0.jar"
+        "/Users/yourusername/.gcal-gmail-mcp/gcal-gmail-mcp.jar"
       ],
       "env": {
         "GOOGLE_OAUTH_PATH": "/path/to/your/gcp-oauth.keys.json"

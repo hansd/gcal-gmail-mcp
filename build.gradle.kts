@@ -40,14 +40,26 @@ application {
 tasks {
     jar {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        archiveFileName.set("gcal-gmail-mcp.jar")
         manifest {
             attributes["Main-Class"] = "com.hansdockter.mcp.gcalgmail.MainKt"
+            attributes["Implementation-Title"] = "gcal-gmail-mcp"
+            attributes["Implementation-Version"] = project.version
         }
         from({
             configurations.runtimeClasspath.get().map { file ->
                 if (file.isDirectory) file else zipTree(file)
             }
         })
+    }
+
+    register<Copy>("install") {
+        dependsOn(jar)
+        from(jar)
+        into(System.getProperty("user.home") + "/.gcal-gmail-mcp")
+        doLast {
+            println("Installed to ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar")
+        }
     }
 }
 

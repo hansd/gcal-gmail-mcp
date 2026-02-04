@@ -1,1 +1,1 @@
-rootProject.name = "gmail-mcp-kotlin"
+rootProject.name = "gcal-gmail-mcp"
