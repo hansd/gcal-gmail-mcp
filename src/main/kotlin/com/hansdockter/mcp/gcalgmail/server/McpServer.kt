@@ -1,6 +1,7 @@
 package com.hansdockter.mcp.gcalgmail.server
 
 import com.hansdockter.mcp.gcalgmail.calendar.*
+import com.hansdockter.mcp.gcalgmail.docs.*
 import com.hansdockter.mcp.gcalgmail.gmail.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -25,7 +26,7 @@ private data class ToolCallParams(
     val arguments: JsonElement? = null
 )
 
-class McpServer(private val gmail: GmailService, private val calendar: CalendarService) {
+class McpServer(private val gmail: GmailService, private val calendar: CalendarService, private val docs: DocsService) {
     fun run() {
         val reader = BufferedReader(InputStreamReader(System.`in`))
         val rawOut = FileOutputStream(FileDescriptor.out)
@@ -93,7 +94,11 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
             McpTool("list_calendars", "Lists all calendars accessible to the user", ToolSchemas.listCalendars),
             McpTool("get_free_busy", "Checks availability for specified calendars", ToolSchemas.getFreeBusy),
             McpTool("list_event_instances", "Lists instances of a recurring event", ToolSchemas.listEventInstances),
-            McpTool("list_event_attachments", "Lists attachments for a calendar event", ToolSchemas.listEventAttachments)
+            McpTool("list_event_attachments", "Lists attachments for a calendar event", ToolSchemas.listEventAttachments),
+            // Docs tools
+            McpTool("get_meeting_notes", "Gets the Google Doc meeting notes attached to a calendar event", ToolSchemas.getMeetingNotes),
+            McpTool("add_agenda_item", "Adds an agenda item to the meeting notes document attached to a calendar event", ToolSchemas.addAgendaItem),
+            McpTool("create_email_review_doc", "Creates a Google Doc with email content for collaborative review before sending", ToolSchemas.createEmailReviewDoc)
         )
 
         val result = ToolListResult(tools)
@@ -262,6 +267,19 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
                 "list_event_attachments" -> {
                     val payload = decodeArgs<ListEventAttachmentsArgs>(args)
                     calendar.listEventAttachments(payload)
+                }
+                // Docs tools
+                "get_meeting_notes" -> {
+                    val payload = decodeArgs<GetMeetingNotesArgs>(args)
+                    docs.getMeetingNotes(payload)
+                }
+                "add_agenda_item" -> {
+                    val payload = decodeArgs<AddAgendaItemArgs>(args)
+                    docs.addAgendaItem(payload)
+                }
+                "create_email_review_doc" -> {
+                    val payload = decodeArgs<CreateEmailReviewDocArgs>(args)
+                    docs.createEmailReviewDoc(payload)
                 }
                 else -> "Unknown tool: ${params.name}"
             }

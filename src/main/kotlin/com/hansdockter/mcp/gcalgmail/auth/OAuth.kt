@@ -107,7 +107,8 @@ class OAuthManager {
             listOf(
                 "https://www.googleapis.com/auth/gmail.modify",
                 "https://www.googleapis.com/auth/gmail.settings.basic",
-                "https://www.googleapis.com/auth/calendar"
+                "https://www.googleapis.com/auth/calendar",
+                "https://www.googleapis.com/auth/documents"
             )
         ).setAccessType("offline").build()
 

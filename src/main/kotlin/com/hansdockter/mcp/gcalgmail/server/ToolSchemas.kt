@@ -439,4 +439,34 @@ object ToolSchemas {
         ),
         required = listOf("eventId")
     )
+
+    // Docs schemas
+
+    val getMeetingNotes: JsonObject = objectSchema(
+        mapOf(
+            "calendarId" to stringSchema("Calendar ID (default: 'primary')"),
+            "eventId" to stringSchema("Event ID to get meeting notes from")
+        ),
+        required = listOf("eventId")
+    )
+
+    val addAgendaItem: JsonObject = objectSchema(
+        mapOf(
+            "calendarId" to stringSchema("Calendar ID (default: 'primary')"),
+            "eventId" to stringSchema("Event ID containing the meeting notes document"),
+            "item" to stringSchema("The agenda item text to add")
+        ),
+        required = listOf("eventId", "item")
+    )
+
+    val createEmailReviewDoc: JsonObject = objectSchema(
+        mapOf(
+            "subject" to stringSchema("Email subject (will be used as document title)"),
+            "body" to stringSchema("Email body content"),
+            "to" to arraySchema(stringSchema(), "List of recipient email addresses"),
+            "cc" to arraySchema(stringSchema(), "List of CC recipients"),
+            "bcc" to arraySchema(stringSchema(), "List of BCC recipients")
+        ),
+        required = listOf("subject", "body")
+    )
 }

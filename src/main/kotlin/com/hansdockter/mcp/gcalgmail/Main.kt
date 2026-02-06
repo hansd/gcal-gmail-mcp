@@ -2,6 +2,7 @@ package com.hansdockter.mcp.gcalgmail
 
 import com.hansdockter.mcp.gcalgmail.auth.OAuthManager
 import com.hansdockter.mcp.gcalgmail.calendar.CalendarService
+import com.hansdockter.mcp.gcalgmail.docs.DocsService
 import com.hansdockter.mcp.gcalgmail.gmail.GmailService
 import com.hansdockter.mcp.gcalgmail.server.McpServer
 
@@ -20,6 +21,7 @@ fun main(args: Array<String>) {
 
     val gmailService = GmailService(credential)
     val calendarService = CalendarService(credential)
-    val server = McpServer(gmailService, calendarService)
+    val docsService = DocsService(credential)
+    val server = McpServer(gmailService, calendarService, docsService)
     server.run()
 }
