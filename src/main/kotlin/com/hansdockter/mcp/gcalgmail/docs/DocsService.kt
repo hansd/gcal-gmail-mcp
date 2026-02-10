@@ -97,7 +97,10 @@ class DocsService(private val credential: Credential) {
 
         if (dateHeading != null) {
             // Date section exists, find Notes under it (agenda items go under Notes)
-            val notesIndex = findNotesHeadingAfterIndex(content, dateHeading.endIndex)
+            // Bound the search to the current date section by finding the next HEADING_2
+            val nextSection = findNextSectionHeading(content, dateHeading.endIndex)
+            val sectionEnd = nextSection?.startIndex ?: Int.MAX_VALUE
+            val notesIndex = findNotesHeadingAfterIndex(content, dateHeading.endIndex, sectionEnd)
 
             if (notesIndex != null) {
                 // Insert bullet item after the Notes heading
@@ -389,10 +392,26 @@ class DocsService(private val credential: Credential) {
         return null
     }
 
-    private fun findNotesHeadingAfterIndex(content: List<StructuralElement>, afterIndex: Int): HeadingLocation? {
+    private fun findNextSectionHeading(content: List<StructuralElement>, afterIndex: Int): HeadingLocation? {
+        for (element in content) {
+            val startIdx = element.startIndex ?: continue
+            if (startIdx < afterIndex) continue
+
+            val paragraph = element.paragraph ?: continue
+            val style = paragraph.paragraphStyle?.namedStyleType ?: continue
+            if (style == "HEADING_2") {
+                val endIdx = element.endIndex ?: continue
+                return HeadingLocation(startIdx, endIdx)
+            }
+        }
+        return null
+    }
+
+    private fun findNotesHeadingAfterIndex(content: List<StructuralElement>, afterIndex: Int, beforeIndex: Int = Int.MAX_VALUE): HeadingLocation? {
         for (element in content) {
             val startIdx = element.startIndex ?: continue
             if (startIdx < afterIndex) continue  // Skip elements before our date section
+            if (startIdx >= beforeIndex) break    // Stop at next date section boundary
 
             val paragraph = element.paragraph ?: continue
             val text = paragraph.elements?.mapNotNull { it.textRun?.content }?.joinToString("") ?: ""
@@ -405,33 +424,4 @@ class DocsService(private val credential: Credential) {
         return null
     }
 
-    private fun findAgendaHeadingAfterIndex(content: List<StructuralElement>, afterIndex: Int): HeadingLocation? {
-        for (element in content) {
-            val startIdx = element.startIndex ?: continue
-            if (startIdx < afterIndex) continue  // Skip elements before our date section
-
-            val paragraph = element.paragraph ?: continue
-            val text = paragraph.elements?.mapNotNull { it.textRun?.content }?.joinToString("") ?: ""
-
-            if (text.trim().equals("Agenda", ignoreCase = true)) {
-                val endIdx = element.endIndex ?: continue
-                return HeadingLocation(startIdx, endIdx)
-            }
-        }
-        return null
-    }
-
-    private fun findAgendaHeadingIndex(content: List<StructuralElement>): HeadingLocation? {
-        for (element in content) {
-            val paragraph = element.paragraph ?: continue
-            val text = paragraph.elements?.mapNotNull { it.textRun?.content }?.joinToString("") ?: ""
-
-            if (text.trim().equals("Agenda", ignoreCase = true)) {
-                val startIdx = element.startIndex ?: continue
-                val endIdx = element.endIndex ?: continue
-                return HeadingLocation(startIdx, endIdx)
-            }
-        }
-        return null
-    }
 }
