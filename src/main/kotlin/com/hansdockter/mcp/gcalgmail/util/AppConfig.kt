@@ -18,6 +18,10 @@ object AppConfig {
         System.getenv("GMAIL_CREDENTIALS_PATH") ?: configDir.resolve("credentials.json").toString()
     )
 
+    val trelloCredentialsPath: Path = Paths.get(
+        System.getenv("TRELLO_CREDENTIALS_PATH") ?: configDir.resolve("trello-credentials.json").toString()
+    )
+
     fun ensureConfigDir() {
         if (!Files.exists(configDir)) {
             Files.createDirectories(configDir)

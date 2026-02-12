@@ -21,6 +21,7 @@ build/
 # Credentials (never commit these)
 gcp-oauth.keys.json
 credentials.json
+trello-credentials.json
 
 # Local scripts
 scripts/

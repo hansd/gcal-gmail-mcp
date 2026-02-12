@@ -4,6 +4,7 @@ import com.hansdockter.mcp.gcalgmail.calendar.*
 import com.hansdockter.mcp.gcalgmail.docs.*
 import com.hansdockter.mcp.gcalgmail.drive.*
 import com.hansdockter.mcp.gcalgmail.gmail.*
+import com.hansdockter.mcp.gcalgmail.trello.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -27,7 +28,7 @@ private data class ToolCallParams(
     val arguments: JsonElement? = null
 )
 
-class McpServer(private val gmail: GmailService, private val calendar: CalendarService, private val docs: DocsService, private val driveComments: DriveCommentsService) {
+class McpServer(private val gmail: GmailService, private val calendar: CalendarService, private val docs: DocsService, private val driveComments: DriveCommentsService, private val trello: TrelloService? = null) {
     fun run() {
         val reader = BufferedReader(InputStreamReader(System.`in`))
         val rawOut = FileOutputStream(FileDescriptor.out)
@@ -113,7 +114,36 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
             McpTool("delete_doc_comment", "Deletes a comment from a Google Doc", ToolSchemas.deleteDocComment)
         )
 
-        val result = ToolListResult(tools)
+        val trelloTools = if (trello != null) listOf(
+            // Trello tools
+            McpTool("list_trello_boards", "List Trello boards for current user", ToolSchemas.listTrelloBoards),
+            McpTool("get_trello_board", "Get Trello board details including lists and members", ToolSchemas.getTrelloBoard),
+            McpTool("search_trello", "Search across Trello boards and cards", ToolSchemas.searchTrello),
+            McpTool("list_trello_lists", "List lists on a Trello board", ToolSchemas.listTrelloLists),
+            McpTool("create_trello_list", "Create a new list on a Trello board", ToolSchemas.createTrelloList),
+            McpTool("update_trello_list", "Update a Trello list name or position", ToolSchemas.updateTrelloList),
+            McpTool("archive_trello_list", "Archive a Trello list", ToolSchemas.archiveTrelloList),
+            McpTool("list_trello_cards", "List cards on a Trello board or in a list", ToolSchemas.listTrelloCards),
+            McpTool("get_trello_card", "Get Trello card details including checklists, comments, and members", ToolSchemas.getTrelloCard),
+            McpTool("create_trello_card", "Create a new Trello card", ToolSchemas.createTrelloCard),
+            McpTool("update_trello_card", "Update a Trello card (name, description, due date, labels, members)", ToolSchemas.updateTrelloCard),
+            McpTool("move_trello_card", "Move a Trello card to a different list or board", ToolSchemas.moveTrelloCard),
+            McpTool("archive_trello_card", "Archive a Trello card", ToolSchemas.archiveTrelloCard),
+            McpTool("add_trello_card_comment", "Add a comment to a Trello card", ToolSchemas.addTrelloCardComment),
+            McpTool("list_trello_labels", "List labels on a Trello board", ToolSchemas.listTrelloLabels),
+            McpTool("create_trello_label", "Create a new label on a Trello board", ToolSchemas.createTrelloLabel),
+            McpTool("update_trello_label", "Update a Trello label", ToolSchemas.updateTrelloLabel),
+            McpTool("delete_trello_label", "Delete a Trello label", ToolSchemas.deleteTrelloLabel),
+            McpTool("list_trello_board_members", "List members on a Trello board", ToolSchemas.listTrelloBoardMembers),
+            McpTool("assign_trello_card_members", "Assign members to a Trello card (replaces existing)", ToolSchemas.assignTrelloCardMembers),
+            McpTool("create_trello_checklist", "Create a checklist on a Trello card", ToolSchemas.createTrelloChecklist),
+            McpTool("get_trello_checklist", "Get a Trello checklist with all items", ToolSchemas.getTrelloChecklist),
+            McpTool("add_trello_checklist_item", "Add an item to a Trello checklist", ToolSchemas.addTrelloChecklistItem),
+            McpTool("update_trello_checklist_item", "Update or toggle a Trello checklist item", ToolSchemas.updateTrelloChecklistItem),
+            McpTool("delete_trello_checklist", "Delete a Trello checklist", ToolSchemas.deleteTrelloChecklist)
+        ) else emptyList()
+
+        val result = ToolListResult(tools + trelloTools)
         return JsonRpcResponse(id = request.id, result = JSON.encodeToJsonElement(result))
     }
 
@@ -333,6 +363,132 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
                 "delete_doc_comment" -> {
                     val payload = decodeArgs<DeleteDocCommentArgs>(args)
                     driveComments.deleteComment(payload)
+                }
+                // Trello tools
+                "list_trello_boards" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<ListTrelloBoardsArgs>(args)
+                    t.listBoards(payload)
+                }
+                "get_trello_board" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<GetTrelloBoardArgs>(args)
+                    t.getBoard(payload)
+                }
+                "search_trello" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<SearchTrelloArgs>(args)
+                    t.search(payload)
+                }
+                "list_trello_lists" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<ListTrelloListsArgs>(args)
+                    t.listLists(payload)
+                }
+                "create_trello_list" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<CreateTrelloListArgs>(args)
+                    t.createList(payload)
+                }
+                "update_trello_list" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<UpdateTrelloListArgs>(args)
+                    t.updateList(payload)
+                }
+                "archive_trello_list" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<ArchiveTrelloListArgs>(args)
+                    t.archiveList(payload)
+                }
+                "list_trello_cards" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<ListTrelloCardsArgs>(args)
+                    t.listCards(payload)
+                }
+                "get_trello_card" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<GetTrelloCardArgs>(args)
+                    t.getCard(payload)
+                }
+                "create_trello_card" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<CreateTrelloCardArgs>(args)
+                    t.createCard(payload)
+                }
+                "update_trello_card" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<UpdateTrelloCardArgs>(args)
+                    t.updateCard(payload)
+                }
+                "move_trello_card" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<MoveTrelloCardArgs>(args)
+                    t.moveCard(payload)
+                }
+                "archive_trello_card" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<ArchiveTrelloCardArgs>(args)
+                    t.archiveCard(payload)
+                }
+                "add_trello_card_comment" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<AddTrelloCardCommentArgs>(args)
+                    t.addCardComment(payload)
+                }
+                "list_trello_labels" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<ListTrelloLabelsArgs>(args)
+                    t.listLabels(payload)
+                }
+                "create_trello_label" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<CreateTrelloLabelArgs>(args)
+                    t.createLabel(payload)
+                }
+                "update_trello_label" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<UpdateTrelloLabelArgs>(args)
+                    t.updateLabel(payload)
+                }
+                "delete_trello_label" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<DeleteTrelloLabelArgs>(args)
+                    t.deleteLabel(payload)
+                }
+                "list_trello_board_members" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<ListTrelloBoardMembersArgs>(args)
+                    t.listBoardMembers(payload)
+                }
+                "assign_trello_card_members" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<AssignTrelloCardMembersArgs>(args)
+                    t.assignCardMembers(payload)
+                }
+                "create_trello_checklist" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<CreateTrelloChecklistArgs>(args)
+                    t.createChecklist(payload)
+                }
+                "get_trello_checklist" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<GetTrelloChecklistArgs>(args)
+                    t.getChecklist(payload)
+                }
+                "add_trello_checklist_item" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<AddTrelloChecklistItemArgs>(args)
+                    t.addChecklistItem(payload)
+                }
+                "update_trello_checklist_item" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<UpdateTrelloChecklistItemArgs>(args)
+                    t.updateChecklistItem(payload)
+                }
+                "delete_trello_checklist" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<DeleteTrelloChecklistArgs>(args)
+                    t.deleteChecklist(payload)
                 }
                 else -> "Unknown tool: ${params.name}"
             }

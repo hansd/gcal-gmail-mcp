@@ -21,8 +21,9 @@ dependencies {
     implementation("io.ktor:ktor-server-content-negotiation-jvm:2.3.7")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:2.3.7")
 
-    implementation("io.ktor:ktor-client-core-jvm:2.3.13")
+    implementation("io.ktor:ktor-client-core-jvm:2.3.7")
     implementation("io.ktor:ktor-client-cio-jvm:2.3.7")
+    implementation("io.ktor:ktor-client-content-negotiation-jvm:2.3.7")
 
     implementation("com.google.api-client:google-api-client:2.4.0")
     implementation("com.google.oauth-client:google-oauth-client-jetty:1.36.0")

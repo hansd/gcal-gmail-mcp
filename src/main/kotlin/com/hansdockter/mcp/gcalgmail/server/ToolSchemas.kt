@@ -554,4 +554,217 @@ object ToolSchemas {
         ),
         required = listOf("fileId", "commentId")
     )
+
+    // Trello schemas
+
+    val listTrelloBoards: JsonObject = objectSchema(
+        mapOf(
+            "filter" to stringSchema("Board filter: open, closed, all (default: open)")
+        )
+    )
+
+    val getTrelloBoard: JsonObject = objectSchema(
+        mapOf(
+            "boardId" to stringSchema("Trello board ID")
+        ),
+        required = listOf("boardId")
+    )
+
+    val searchTrello: JsonObject = objectSchema(
+        mapOf(
+            "query" to stringSchema("Search query string"),
+            "modelTypes" to stringSchema("Types to search: cards, boards (default: cards,boards)"),
+            "boardIds" to arraySchema(stringSchema(), "Limit search to specific board IDs"),
+            "limit" to numberSchema("Maximum results (default: 10)")
+        ),
+        required = listOf("query")
+    )
+
+    val listTrelloLists: JsonObject = objectSchema(
+        mapOf(
+            "boardId" to stringSchema("Trello board ID"),
+            "filter" to stringSchema("List filter: open, closed, all (default: open)")
+        ),
+        required = listOf("boardId")
+    )
+
+    val createTrelloList: JsonObject = objectSchema(
+        mapOf(
+            "boardId" to stringSchema("Trello board ID to create the list on"),
+            "name" to stringSchema("Name for the new list"),
+            "pos" to stringSchema("Position: top, bottom, or positive float")
+        ),
+        required = listOf("boardId", "name")
+    )
+
+    val updateTrelloList: JsonObject = objectSchema(
+        mapOf(
+            "listId" to stringSchema("Trello list ID"),
+            "name" to stringSchema("New name for the list"),
+            "pos" to stringSchema("New position: top, bottom, or positive float")
+        ),
+        required = listOf("listId")
+    )
+
+    val archiveTrelloList: JsonObject = objectSchema(
+        mapOf(
+            "listId" to stringSchema("Trello list ID to archive")
+        ),
+        required = listOf("listId")
+    )
+
+    val listTrelloCards: JsonObject = objectSchema(
+        mapOf(
+            "boardId" to stringSchema("Trello board ID (provide boardId or listId)"),
+            "listId" to stringSchema("Trello list ID (provide boardId or listId)"),
+            "filter" to stringSchema("Card filter: open, closed, all (default: open)")
+        )
+    )
+
+    val getTrelloCard: JsonObject = objectSchema(
+        mapOf(
+            "cardId" to stringSchema("Trello card ID")
+        ),
+        required = listOf("cardId")
+    )
+
+    val createTrelloCard: JsonObject = objectSchema(
+        mapOf(
+            "listId" to stringSchema("ID of the list to create the card in"),
+            "name" to stringSchema("Card title"),
+            "desc" to stringSchema("Card description (supports markdown)"),
+            "pos" to stringSchema("Position: top, bottom, or positive float"),
+            "due" to stringSchema("Due date (ISO 8601 format)"),
+            "labelIds" to arraySchema(stringSchema(), "Label IDs to apply"),
+            "memberIds" to arraySchema(stringSchema(), "Member IDs to assign")
+        ),
+        required = listOf("listId", "name")
+    )
+
+    val updateTrelloCard: JsonObject = objectSchema(
+        mapOf(
+            "cardId" to stringSchema("Trello card ID"),
+            "name" to stringSchema("New card title"),
+            "desc" to stringSchema("New card description"),
+            "pos" to stringSchema("New position: top, bottom, or positive float"),
+            "due" to stringSchema("New due date (ISO 8601 format)"),
+            "dueComplete" to boolSchema("Mark due date as complete"),
+            "labelIds" to arraySchema(stringSchema(), "Label IDs to set (replaces existing)"),
+            "memberIds" to arraySchema(stringSchema(), "Member IDs to set (replaces existing)")
+        ),
+        required = listOf("cardId")
+    )
+
+    val moveTrelloCard: JsonObject = objectSchema(
+        mapOf(
+            "cardId" to stringSchema("Trello card ID to move"),
+            "listId" to stringSchema("Target list ID"),
+            "boardId" to stringSchema("Target board ID (if moving to different board)"),
+            "pos" to stringSchema("Position in target list: top, bottom, or positive float")
+        ),
+        required = listOf("cardId", "listId")
+    )
+
+    val archiveTrelloCard: JsonObject = objectSchema(
+        mapOf(
+            "cardId" to stringSchema("Trello card ID to archive")
+        ),
+        required = listOf("cardId")
+    )
+
+    val addTrelloCardComment: JsonObject = objectSchema(
+        mapOf(
+            "cardId" to stringSchema("Trello card ID"),
+            "text" to stringSchema("Comment text")
+        ),
+        required = listOf("cardId", "text")
+    )
+
+    val listTrelloLabels: JsonObject = objectSchema(
+        mapOf(
+            "boardId" to stringSchema("Trello board ID")
+        ),
+        required = listOf("boardId")
+    )
+
+    val createTrelloLabel: JsonObject = objectSchema(
+        mapOf(
+            "boardId" to stringSchema("Trello board ID"),
+            "name" to stringSchema("Label name"),
+            "color" to stringSchema("Label color: green, yellow, orange, red, purple, blue, sky, lime, pink, black")
+        ),
+        required = listOf("boardId", "name", "color")
+    )
+
+    val updateTrelloLabel: JsonObject = objectSchema(
+        mapOf(
+            "labelId" to stringSchema("Trello label ID"),
+            "name" to stringSchema("New label name"),
+            "color" to stringSchema("New label color: green, yellow, orange, red, purple, blue, sky, lime, pink, black")
+        ),
+        required = listOf("labelId")
+    )
+
+    val deleteTrelloLabel: JsonObject = objectSchema(
+        mapOf(
+            "labelId" to stringSchema("Trello label ID to delete")
+        ),
+        required = listOf("labelId")
+    )
+
+    val listTrelloBoardMembers: JsonObject = objectSchema(
+        mapOf(
+            "boardId" to stringSchema("Trello board ID")
+        ),
+        required = listOf("boardId")
+    )
+
+    val assignTrelloCardMembers: JsonObject = objectSchema(
+        mapOf(
+            "cardId" to stringSchema("Trello card ID"),
+            "memberIds" to arraySchema(stringSchema(), "Member IDs to assign (replaces existing members)")
+        ),
+        required = listOf("cardId", "memberIds")
+    )
+
+    val createTrelloChecklist: JsonObject = objectSchema(
+        mapOf(
+            "cardId" to stringSchema("Trello card ID to add checklist to"),
+            "name" to stringSchema("Checklist name")
+        ),
+        required = listOf("cardId", "name")
+    )
+
+    val getTrelloChecklist: JsonObject = objectSchema(
+        mapOf(
+            "checklistId" to stringSchema("Trello checklist ID")
+        ),
+        required = listOf("checklistId")
+    )
+
+    val addTrelloChecklistItem: JsonObject = objectSchema(
+        mapOf(
+            "checklistId" to stringSchema("Trello checklist ID"),
+            "name" to stringSchema("Check item name"),
+            "pos" to stringSchema("Position: top, bottom, or positive float")
+        ),
+        required = listOf("checklistId", "name")
+    )
+
+    val updateTrelloChecklistItem: JsonObject = objectSchema(
+        mapOf(
+            "cardId" to stringSchema("Trello card ID containing the checklist item"),
+            "checklistItemId" to stringSchema("Checklist item ID"),
+            "state" to stringSchema("Item state: complete or incomplete"),
+            "name" to stringSchema("New item name")
+        ),
+        required = listOf("cardId", "checklistItemId")
+    )
+
+    val deleteTrelloChecklist: JsonObject = objectSchema(
+        mapOf(
+            "checklistId" to stringSchema("Trello checklist ID to delete")
+        ),
+        required = listOf("checklistId")
+    )
 }
