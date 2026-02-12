@@ -140,7 +140,10 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
             McpTool("get_trello_checklist", "Get a Trello checklist with all items", ToolSchemas.getTrelloChecklist),
             McpTool("add_trello_checklist_item", "Add an item to a Trello checklist", ToolSchemas.addTrelloChecklistItem),
             McpTool("update_trello_checklist_item", "Update or toggle a Trello checklist item", ToolSchemas.updateTrelloChecklistItem),
-            McpTool("delete_trello_checklist", "Delete a Trello checklist", ToolSchemas.deleteTrelloChecklist)
+            McpTool("delete_trello_checklist", "Delete a Trello checklist", ToolSchemas.deleteTrelloChecklist),
+            McpTool("list_trello_custom_fields", "List custom field definitions on a Trello board (names, types, dropdown options)", ToolSchemas.listTrelloCustomFields),
+            McpTool("get_trello_card_custom_fields", "Get custom field values for a Trello card (e.g. Owner, Accountable, Project)", ToolSchemas.getTrelloCardCustomFields),
+            McpTool("set_trello_card_custom_field", "Set a custom field value on a Trello card", ToolSchemas.setTrelloCardCustomField)
         ) else emptyList()
 
         val result = ToolListResult(tools + trelloTools)
@@ -489,6 +492,21 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
                     val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
                     val payload = decodeArgs<DeleteTrelloChecklistArgs>(args)
                     t.deleteChecklist(payload)
+                }
+                "list_trello_custom_fields" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<ListTrelloCustomFieldsArgs>(args)
+                    t.listCustomFields(payload)
+                }
+                "get_trello_card_custom_fields" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<GetTrelloCardCustomFieldsArgs>(args)
+                    t.getCardCustomFields(payload)
+                }
+                "set_trello_card_custom_field" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<SetTrelloCardCustomFieldArgs>(args)
+                    t.setCardCustomField(payload)
                 }
                 else -> "Unknown tool: ${params.name}"
             }

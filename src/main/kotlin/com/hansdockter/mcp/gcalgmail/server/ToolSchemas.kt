@@ -767,4 +767,30 @@ object ToolSchemas {
         ),
         required = listOf("checklistId")
     )
+
+    // Trello Custom Fields
+
+    val listTrelloCustomFields: JsonObject = objectSchema(
+        mapOf(
+            "boardId" to stringSchema("Trello board ID")
+        ),
+        required = listOf("boardId")
+    )
+
+    val getTrelloCardCustomFields: JsonObject = objectSchema(
+        mapOf(
+            "cardId" to stringSchema("Trello card ID")
+        ),
+        required = listOf("cardId")
+    )
+
+    val setTrelloCardCustomField: JsonObject = objectSchema(
+        mapOf(
+            "cardId" to stringSchema("Trello card ID"),
+            "customFieldId" to stringSchema("Custom field ID (from list_trello_custom_fields)"),
+            "value" to stringSchema("Value to set (for text, number, date, checkbox fields). For checkbox use 'true'/'false'. For date use ISO 8601 format."),
+            "idValue" to stringSchema("Option ID to set (for list/dropdown fields only, from list_trello_custom_fields options)")
+        ),
+        required = listOf("cardId", "customFieldId")
+    )
 }

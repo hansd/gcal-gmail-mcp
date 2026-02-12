@@ -182,3 +182,23 @@ data class UpdateTrelloChecklistItemArgs(
 data class DeleteTrelloChecklistArgs(
     val checklistId: String
 )
+
+// Custom Fields
+
+@Serializable
+data class ListTrelloCustomFieldsArgs(
+    val boardId: String
+)
+
+@Serializable
+data class GetTrelloCardCustomFieldsArgs(
+    val cardId: String
+)
+
+@Serializable
+data class SetTrelloCardCustomFieldArgs(
+    val cardId: String,
+    val customFieldId: String,
+    val value: String? = null,
+    val idValue: String? = null
+)

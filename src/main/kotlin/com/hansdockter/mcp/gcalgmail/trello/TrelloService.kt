@@ -189,12 +189,39 @@ class TrelloService(credentials: TrelloCredentials) {
 
         val cards = client.get(path, mapOf(
             "filter" to args.filter,
-            "fields" to "name,desc,url,due,dueComplete,closed,idList,labels,shortUrl",
+            "fields" to "name,desc,url,due,dueComplete,closed,idList,idBoard,labels,shortUrl",
             "members" to "true",
-            "member_fields" to "fullName,username"
+            "member_fields" to "fullName,username",
+            "customFieldItems" to "true"
         )).jsonArray
 
         if (cards.isEmpty()) return@runBlocking "No cards found."
+
+        // Fetch custom field definitions for the board (all cards share the same board)
+        val boardId = args.boardId
+            ?: cards.firstOrNull()?.jsonObject?.str("idBoard")
+            ?: ""
+        val fieldDefs = if (boardId.isNotBlank()) {
+            try {
+                client.get("/boards/$boardId/customFields").jsonArray.toList()
+            } catch (_: Exception) {
+                emptyList()
+            }
+        } else emptyList()
+
+        val defMap = if (fieldDefs.isNotEmpty()) {
+            fieldDefs.associate { def ->
+                val d = def.jsonObject
+                val id = d.str("id")
+                val name = d.str("name")
+                val type = d.str("type")
+                val options = d["options"]?.jsonArray?.associate { opt ->
+                    val o = opt.jsonObject
+                    o.str("id") to (o["value"]?.jsonObject?.str("text") ?: "")
+                } ?: emptyMap()
+                id to Triple(name, type, options)
+            }
+        } else emptyMap()
 
         buildString {
             appendLine("Found ${cards.size} card(s):")
@@ -221,6 +248,30 @@ class TrelloService(credentials: TrelloCredentials) {
                     val memberNames = members.map { it.jsonObject.str("fullName") }
                     appendLine("  Members: ${memberNames.joinToString(", ")}")
                 }
+                // Custom Fields
+                val customFieldItems = c["customFieldItems"]?.jsonArray
+                if (customFieldItems != null && customFieldItems.isNotEmpty() && defMap.isNotEmpty()) {
+                    val resolved = customFieldItems.mapNotNull { item ->
+                        val fi = item.jsonObject
+                        val fieldId = fi.str("idCustomField")
+                        val (name, type, options) = defMap[fieldId] ?: return@mapNotNull null
+
+                        val displayValue = when (type) {
+                            "list" -> {
+                                val selectedId = fi.strOrNull("idValue") ?: ""
+                                options[selectedId] ?: selectedId
+                            }
+                            "checkbox" -> fi["value"]?.jsonObject?.get("checked")?.jsonPrimitive?.content ?: ""
+                            "number" -> fi["value"]?.jsonObject?.str("number") ?: ""
+                            "date" -> fi["value"]?.jsonObject?.str("date") ?: ""
+                            else -> fi["value"]?.jsonObject?.str("text") ?: ""
+                        }
+                        if (displayValue.isNotBlank()) name to displayValue else null
+                    }
+                    if (resolved.isNotEmpty()) {
+                        appendLine("  Custom Fields: ${resolved.joinToString(", ") { "${it.first}: ${it.second}" }}")
+                    }
+                }
                 appendLine()
             }
         }
@@ -234,8 +285,17 @@ class TrelloService(credentials: TrelloCredentials) {
             "checklists" to "all",
             "checklist_fields" to "name",
             "actions" to "commentCard",
-            "actions_limit" to "10"
+            "actions_limit" to "10",
+            "customFieldItems" to "true"
         )).jsonObject
+
+        // Fetch custom field definitions for the board
+        val boardId = c.str("idBoard")
+        val fieldDefs = try {
+            client.get("/boards/$boardId/customFields").jsonArray
+        } catch (_: Exception) {
+            JsonArray(emptyList())
+        }
 
         buildString {
             appendLine("Card: ${c.str("name")}")
@@ -277,6 +337,48 @@ class TrelloService(credentials: TrelloCredentials) {
                 for (member in members) {
                     val m = member.jsonObject
                     appendLine("  - ${m.str("fullName")} (@${m.str("username")}, ID: ${m.str("id")})")
+                }
+            }
+
+            // Custom Fields
+            val customFieldItems = c["customFieldItems"]?.jsonArray
+            if (customFieldItems != null && customFieldItems.isNotEmpty() && fieldDefs.isNotEmpty()) {
+                val defMap = fieldDefs.associate { def ->
+                    val d = def.jsonObject
+                    val id = d.str("id")
+                    val name = d.str("name")
+                    val type = d.str("type")
+                    val options = d["options"]?.jsonArray?.associate { opt ->
+                        val o = opt.jsonObject
+                        o.str("id") to (o["value"]?.jsonObject?.str("text") ?: "")
+                    } ?: emptyMap()
+                    id to Triple(name, type, options)
+                }
+
+                val resolved = customFieldItems.mapNotNull { item ->
+                    val fi = item.jsonObject
+                    val fieldId = fi.str("idCustomField")
+                    val (name, type, options) = defMap[fieldId] ?: return@mapNotNull null
+
+                    val displayValue = when (type) {
+                        "list" -> {
+                            val selectedId = fi.strOrNull("idValue") ?: ""
+                            options[selectedId] ?: selectedId
+                        }
+                        "checkbox" -> fi["value"]?.jsonObject?.get("checked")?.jsonPrimitive?.content ?: ""
+                        "number" -> fi["value"]?.jsonObject?.str("number") ?: ""
+                        "date" -> fi["value"]?.jsonObject?.str("date") ?: ""
+                        else -> fi["value"]?.jsonObject?.str("text") ?: ""
+                    }
+                    if (displayValue.isNotBlank()) name to displayValue else null
+                }
+
+                if (resolved.isNotEmpty()) {
+                    appendLine()
+                    appendLine("Custom Fields:")
+                    for ((name, value) in resolved) {
+                        appendLine("  $name: $value")
+                    }
                 }
             }
 
@@ -548,6 +650,162 @@ class TrelloService(credentials: TrelloCredentials) {
     fun deleteChecklist(args: DeleteTrelloChecklistArgs): String = runBlocking {
         client.delete("/checklists/${args.checklistId}")
         "Checklist ${args.checklistId} deleted successfully."
+    }
+
+    // ─── Custom Fields ────────────────────────────────────────
+
+    fun listCustomFields(args: ListTrelloCustomFieldsArgs): String = runBlocking {
+        val fields = client.get("/boards/${args.boardId}/customFields").jsonArray
+
+        if (fields.isEmpty()) return@runBlocking "No custom fields found on this board."
+
+        buildString {
+            appendLine("Custom fields on board (${fields.size}):")
+            appendLine()
+            for (field in fields) {
+                val f = field.jsonObject
+                appendLine("  - ${f.str("name")}")
+                appendLine("    ID: ${f.str("id")}")
+                appendLine("    Type: ${f.str("type")}")
+                val options = f["options"]?.jsonArray
+                if (options != null && options.isNotEmpty()) {
+                    appendLine("    Options:")
+                    for (option in options) {
+                        val o = option.jsonObject
+                        val value = o["value"]?.jsonObject?.str("text") ?: ""
+                        appendLine("      - $value (ID: ${o.str("id")})")
+                    }
+                }
+                appendLine()
+            }
+        }
+    }
+
+    fun getCardCustomFields(args: GetTrelloCardCustomFieldsArgs): String = runBlocking {
+        // First get the card to find its board
+        val card = client.get("/cards/${args.cardId}", mapOf(
+            "fields" to "idBoard,name"
+        )).jsonObject
+        val boardId = card.str("idBoard")
+        val cardName = card.str("name")
+
+        // Get field definitions for the board
+        val fieldDefs = client.get("/boards/$boardId/customFields").jsonArray
+
+        // Get field values for the card
+        val fieldItems = client.get("/cards/${args.cardId}/customFieldItems").jsonArray
+
+        if (fieldItems.isEmpty()) return@runBlocking "No custom field values set on card '$cardName'."
+
+        // Build lookup: fieldId -> definition
+        val defMap = fieldDefs.associate { def ->
+            val d = def.jsonObject
+            val id = d.str("id")
+            val name = d.str("name")
+            val type = d.str("type")
+            val options = d["options"]?.jsonArray?.associate { opt ->
+                val o = opt.jsonObject
+                o.str("id") to (o["value"]?.jsonObject?.str("text") ?: "")
+            } ?: emptyMap()
+            id to Triple(name, type, options)
+        }
+
+        buildString {
+            appendLine("Custom fields for card '$cardName':")
+            appendLine()
+            for (item in fieldItems) {
+                val fi = item.jsonObject
+                val fieldId = fi.str("idCustomField")
+                val (name, type, options) = defMap[fieldId] ?: Triple(fieldId, "unknown", emptyMap())
+
+                val displayValue = when (type) {
+                    "list" -> {
+                        val selectedId = fi.strOrNull("idValue") ?: ""
+                        options[selectedId] ?: selectedId
+                    }
+                    "checkbox" -> {
+                        fi["value"]?.jsonObject?.get("checked")?.jsonPrimitive?.content ?: ""
+                    }
+                    "number" -> {
+                        fi["value"]?.jsonObject?.str("number") ?: ""
+                    }
+                    "date" -> {
+                        fi["value"]?.jsonObject?.str("date") ?: ""
+                    }
+                    else -> {
+                        fi["value"]?.jsonObject?.str("text") ?: ""
+                    }
+                }
+
+                appendLine("  $name: $displayValue")
+            }
+        }
+    }
+
+    fun setCardCustomField(args: SetTrelloCardCustomFieldArgs): String = runBlocking {
+        // The Trello API uses PUT with a JSON body for custom field updates
+        // For list fields: { "idValue": "optionId" }
+        // For text/number/date/checkbox: { "value": { "text": "..." } }
+        val params = if (args.idValue != null) {
+            mapOf("idValue" to args.idValue)
+        } else {
+            mapOf("value" to (args.value ?: ""))
+        }
+
+        // We need to send JSON body, but our client uses query params.
+        // Use the query param approach which Trello also supports for this endpoint.
+        client.put(
+            "/cards/${args.cardId}/customField/${args.customFieldId}/item",
+            params
+        )
+
+        "Custom field updated successfully on card ${args.cardId}."
+    }
+
+    /**
+     * Fetch custom field items for a card and resolve their display values
+     * using the provided field definitions.
+     */
+    private suspend fun resolveCustomFields(
+        cardId: String,
+        fieldDefs: List<JsonElement>
+    ): List<Pair<String, String>> {
+        val fieldItems = try {
+            client.get("/cards/$cardId/customFieldItems").jsonArray
+        } catch (_: Exception) {
+            return emptyList()
+        }
+        if (fieldItems.isEmpty()) return emptyList()
+
+        val defMap = fieldDefs.associate { def ->
+            val d = def.jsonObject
+            val id = d.str("id")
+            val name = d.str("name")
+            val type = d.str("type")
+            val options = d["options"]?.jsonArray?.associate { opt ->
+                val o = opt.jsonObject
+                o.str("id") to (o["value"]?.jsonObject?.str("text") ?: "")
+            } ?: emptyMap()
+            id to Triple(name, type, options)
+        }
+
+        return fieldItems.mapNotNull { item ->
+            val fi = item.jsonObject
+            val fieldId = fi.str("idCustomField")
+            val (name, type, options) = defMap[fieldId] ?: return@mapNotNull null
+
+            val displayValue = when (type) {
+                "list" -> {
+                    val selectedId = fi.strOrNull("idValue") ?: ""
+                    options[selectedId] ?: selectedId
+                }
+                "checkbox" -> fi["value"]?.jsonObject?.get("checked")?.jsonPrimitive?.content ?: ""
+                "number" -> fi["value"]?.jsonObject?.str("number") ?: ""
+                "date" -> fi["value"]?.jsonObject?.str("date") ?: ""
+                else -> fi["value"]?.jsonObject?.str("text") ?: ""
+            }
+            if (displayValue.isNotBlank()) name to displayValue else null
+        }
     }
 
     // ─── Helpers ─────────────────────────────────────────────
