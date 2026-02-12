@@ -59,6 +59,102 @@ class DocsService(private val credential: Credential) {
         }
     }
 
+    fun readDocContent(args: ReadDocContentArgs): String {
+        val document = docs.documents().get(args.fileId).execute()
+        val title = document.title ?: "Untitled"
+        val content = document.body?.content ?: emptyList()
+
+        val text = buildString {
+            for (element in content) {
+                val paragraph = element.paragraph ?: continue
+                val paragraphText = paragraph.elements?.mapNotNull { it.textRun?.content }?.joinToString("") ?: ""
+                append(paragraphText)
+            }
+        }
+
+        return buildString {
+            appendLine("Document: $title")
+            appendLine("Document ID: ${args.fileId}")
+            appendLine("URL: https://docs.google.com/document/d/${args.fileId}/edit")
+            appendLine()
+            append(text)
+        }
+    }
+
+    fun getAgendaItems(args: GetAgendaItemsArgs): String {
+        val event = calendar.events().get(args.calendarId, args.eventId).execute()
+        val attachments = event.attachments ?: emptyList()
+
+        val googleDocs = attachments.filter {
+            it.mimeType == "application/vnd.google-apps.document"
+        }
+
+        if (googleDocs.isEmpty()) {
+            return "No Google Docs attached to event '${event.summary}'."
+        }
+
+        if (googleDocs.size > 1) {
+            return buildString {
+                appendLine("Multiple Google Docs attached to '${event.summary}'.")
+                appendLine("Please use get_meeting_notes first to identify the correct document.")
+            }
+        }
+
+        val docUrl = googleDocs.first().fileUrl
+        val docId = extractDocId(docUrl)
+            ?: return "Could not extract document ID from URL: $docUrl"
+
+        val document = docs.documents().get(docId).execute()
+        val content = document.body?.content ?: emptyList()
+
+        val eventDate = extractEventDate(event)
+        val dateString = formatDateForHeading(eventDate)
+        val dateHeading = findDateHeadingIndex(content, eventDate)
+
+        if (dateHeading == null) {
+            return "No agenda section found for $dateString in '${event.summary}'."
+        }
+
+        val nextSection = findNextSectionHeading(content, dateHeading.endIndex)
+        val sectionEnd = nextSection?.startIndex ?: Int.MAX_VALUE
+        val notesIndex = findNotesHeadingAfterIndex(content, dateHeading.endIndex, sectionEnd)
+
+        if (notesIndex == null) {
+            return "No Notes section found for $dateString in '${event.summary}'."
+        }
+
+        // Find the boundary after Notes — either "Action items" text or the next HEADING_2
+        val notesEnd = findSectionEndAfterNotes(content, notesIndex.endIndex, sectionEnd)
+
+        // Extract bullet items between Notes heading and the boundary
+        val items = mutableListOf<String>()
+        for (element in content) {
+            val startIdx = element.startIndex ?: continue
+            if (startIdx < notesIndex.endIndex) continue
+            if (startIdx >= notesEnd) break
+
+            val paragraph = element.paragraph ?: continue
+            val text = paragraph.elements?.mapNotNull { it.textRun?.content }?.joinToString("")?.trim() ?: ""
+            if (text.isNotEmpty()) {
+                items.add(text)
+            }
+        }
+
+        return buildString {
+            appendLine("Agenda items for '${event.summary}' ($dateString):")
+            appendLine("Document: ${googleDocs.first().title ?: "Untitled"}")
+            appendLine("URL: $docUrl")
+            appendLine()
+            if (items.isEmpty()) {
+                appendLine("No agenda items found.")
+            } else {
+                items.forEachIndexed { index, item ->
+                    appendLine("${index + 1}. $item")
+                }
+            }
+        }
+    }
+
     fun addAgendaItem(args: AddAgendaItemArgs): String {
         val event = calendar.events().get(args.calendarId, args.eventId).execute()
         val attachments = event.attachments ?: emptyList()
@@ -267,6 +363,49 @@ class DocsService(private val credential: Credential) {
         }
     }
 
+    fun createDoc(args: CreateDocArgs): String {
+        val doc = Document().setTitle(args.title)
+        val createdDoc = docs.documents().create(doc).execute()
+        val docId = createdDoc.documentId
+
+        val converter = MarkdownToDocsConverter()
+        val requests = converter.convert(args.content, startIndex = 1)
+
+        if (requests.isNotEmpty()) {
+            docs.documents().batchUpdate(docId, BatchUpdateDocumentRequest().setRequests(requests)).execute()
+        }
+
+        val docUrl = "https://docs.google.com/document/d/$docId/edit"
+        return buildString {
+            appendLine("Document created successfully!")
+            appendLine("Title: ${args.title}")
+            appendLine("URL: $docUrl")
+            appendLine("Document ID: $docId")
+        }
+    }
+
+    fun updateDoc(args: UpdateDocArgs): String {
+        val document = docs.documents().get(args.fileId).execute()
+        val body = document.body
+        val endIndex = body.content.lastOrNull()?.endIndex ?: 1
+        val insertAt = endIndex - 1
+
+        val converter = MarkdownToDocsConverter()
+        val requests = converter.convert(args.content, startIndex = insertAt)
+
+        if (requests.isNotEmpty()) {
+            docs.documents().batchUpdate(args.fileId, BatchUpdateDocumentRequest().setRequests(requests)).execute()
+        }
+
+        val docUrl = "https://docs.google.com/document/d/${args.fileId}/edit"
+        return buildString {
+            appendLine("Document updated successfully!")
+            appendLine("Title: ${document.title}")
+            appendLine("URL: $docUrl")
+            appendLine("Document ID: ${args.fileId}")
+        }
+    }
+
     fun createEmailReviewDoc(args: CreateEmailReviewDocArgs): String {
         // Create the document
         val doc = Document().setTitle("Email Draft: ${args.subject}")
@@ -405,6 +544,21 @@ class DocsService(private val credential: Credential) {
             }
         }
         return null
+    }
+
+    private fun findSectionEndAfterNotes(content: List<StructuralElement>, afterIndex: Int, sectionEnd: Int): Int {
+        for (element in content) {
+            val startIdx = element.startIndex ?: continue
+            if (startIdx < afterIndex) continue
+            if (startIdx >= sectionEnd) break
+
+            val paragraph = element.paragraph ?: continue
+            val text = paragraph.elements?.mapNotNull { it.textRun?.content }?.joinToString("")?.trim() ?: ""
+            if (text.equals("Action items", ignoreCase = true)) {
+                return startIdx
+            }
+        }
+        return sectionEnd
     }
 
     private fun findNotesHeadingAfterIndex(content: List<StructuralElement>, afterIndex: Int, beforeIndex: Int = Int.MAX_VALUE): HeadingLocation? {

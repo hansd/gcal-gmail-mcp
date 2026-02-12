@@ -29,6 +29,10 @@ dependencies {
     implementation("com.google.apis:google-api-services-gmail:v1-rev20240520-2.0.0")
     implementation("com.google.apis:google-api-services-calendar:v3-rev20241101-2.0.0")
     implementation("com.google.apis:google-api-services-docs:v1-rev20260114-2.0.0")
+    implementation("com.google.apis:google-api-services-drive:v3-rev20250220-2.0.0")
+
+    implementation("org.commonmark:commonmark:0.24.0")
+    implementation("org.commonmark:commonmark-ext-gfm-tables:0.24.0")
 
     implementation("com.sun.mail:jakarta.mail:2.0.2")
     implementation("org.slf4j:slf4j-simple:2.0.12")

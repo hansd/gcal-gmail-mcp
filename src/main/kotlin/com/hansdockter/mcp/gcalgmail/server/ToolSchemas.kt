@@ -450,6 +450,21 @@ object ToolSchemas {
         required = listOf("eventId")
     )
 
+    val readDocContent: JsonObject = objectSchema(
+        mapOf(
+            "fileId" to stringSchema("Google Doc file ID")
+        ),
+        required = listOf("fileId")
+    )
+
+    val getAgendaItems: JsonObject = objectSchema(
+        mapOf(
+            "calendarId" to stringSchema("Calendar ID (default: 'primary')"),
+            "eventId" to stringSchema("Event ID to get agenda items from")
+        ),
+        required = listOf("eventId")
+    )
+
     val addAgendaItem: JsonObject = objectSchema(
         mapOf(
             "calendarId" to stringSchema("Calendar ID (default: 'primary')"),
@@ -457,6 +472,22 @@ object ToolSchemas {
             "item" to stringSchema("The agenda item text to add")
         ),
         required = listOf("eventId", "item")
+    )
+
+    val createDoc: JsonObject = objectSchema(
+        mapOf(
+            "title" to stringSchema("The title of the Google Doc"),
+            "content" to stringSchema("Markdown content to render as formatted text in the document. Supports headings, bold, italic, links, code blocks, bullet/ordered lists, tables, block quotes, horizontal rules, and images.")
+        ),
+        required = listOf("title", "content")
+    )
+
+    val updateDoc: JsonObject = objectSchema(
+        mapOf(
+            "fileId" to stringSchema("Google Doc file ID"),
+            "content" to stringSchema("Markdown content to append to the document, rendered as formatted text")
+        ),
+        required = listOf("fileId", "content")
     )
 
     val createEmailReviewDoc: JsonObject = objectSchema(
@@ -468,5 +499,59 @@ object ToolSchemas {
             "bcc" to arraySchema(stringSchema(), "List of BCC recipients")
         ),
         required = listOf("subject", "body")
+    )
+
+    // Drive Comments schemas
+
+    val listDocComments: JsonObject = objectSchema(
+        mapOf(
+            "fileId" to stringSchema("Google Doc file ID"),
+            "pageSize" to numberSchema("Number of comments to return per page (default: 20)"),
+            "pageToken" to stringSchema("Page token for fetching next page of results"),
+            "includeDeleted" to boolSchema("Include deleted comments (default: false)")
+        ),
+        required = listOf("fileId")
+    )
+
+    val getDocComment: JsonObject = objectSchema(
+        mapOf(
+            "fileId" to stringSchema("Google Doc file ID"),
+            "commentId" to stringSchema("ID of the comment to retrieve")
+        ),
+        required = listOf("fileId", "commentId")
+    )
+
+    val createDocComment: JsonObject = objectSchema(
+        mapOf(
+            "fileId" to stringSchema("Google Doc file ID"),
+            "content" to stringSchema("The text content of the comment"),
+            "quotedContent" to stringSchema("Text from the document that the comment refers to")
+        ),
+        required = listOf("fileId", "content")
+    )
+
+    val replyToDocComment: JsonObject = objectSchema(
+        mapOf(
+            "fileId" to stringSchema("Google Doc file ID"),
+            "commentId" to stringSchema("ID of the comment to reply to"),
+            "content" to stringSchema("The text content of the reply")
+        ),
+        required = listOf("fileId", "commentId", "content")
+    )
+
+    val resolveDocComment: JsonObject = objectSchema(
+        mapOf(
+            "fileId" to stringSchema("Google Doc file ID"),
+            "commentId" to stringSchema("ID of the comment to resolve")
+        ),
+        required = listOf("fileId", "commentId")
+    )
+
+    val deleteDocComment: JsonObject = objectSchema(
+        mapOf(
+            "fileId" to stringSchema("Google Doc file ID"),
+            "commentId" to stringSchema("ID of the comment to delete")
+        ),
+        required = listOf("fileId", "commentId")
     )
 }

@@ -3,6 +3,9 @@
 build/
 !gradle/wrapper/gradle-wrapper.jar
 
+# Build artifacts
+/com/
+
 # IDE
 .idea/
 *.iml

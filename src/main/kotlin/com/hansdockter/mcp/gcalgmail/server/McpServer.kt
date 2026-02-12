@@ -2,6 +2,7 @@ package com.hansdockter.mcp.gcalgmail.server
 
 import com.hansdockter.mcp.gcalgmail.calendar.*
 import com.hansdockter.mcp.gcalgmail.docs.*
+import com.hansdockter.mcp.gcalgmail.drive.*
 import com.hansdockter.mcp.gcalgmail.gmail.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -26,7 +27,7 @@ private data class ToolCallParams(
     val arguments: JsonElement? = null
 )
 
-class McpServer(private val gmail: GmailService, private val calendar: CalendarService, private val docs: DocsService) {
+class McpServer(private val gmail: GmailService, private val calendar: CalendarService, private val docs: DocsService, private val driveComments: DriveCommentsService) {
     fun run() {
         val reader = BufferedReader(InputStreamReader(System.`in`))
         val rawOut = FileOutputStream(FileDescriptor.out)
@@ -97,8 +98,19 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
             McpTool("list_event_attachments", "Lists attachments for a calendar event", ToolSchemas.listEventAttachments),
             // Docs tools
             McpTool("get_meeting_notes", "Gets the Google Doc meeting notes attached to a calendar event", ToolSchemas.getMeetingNotes),
+            McpTool("read_doc_content", "Reads the full text content of a Google Doc by its document ID", ToolSchemas.readDocContent),
+            McpTool("get_agenda_items", "Gets the agenda items from the meeting notes document attached to a calendar event", ToolSchemas.getAgendaItems),
             McpTool("add_agenda_item", "Adds an agenda item to the meeting notes document attached to a calendar event", ToolSchemas.addAgendaItem),
-            McpTool("create_email_review_doc", "Creates a Google Doc with email content for collaborative review before sending", ToolSchemas.createEmailReviewDoc)
+            McpTool("create_doc", "Creates a new Google Doc with markdown content rendered as richly formatted text (headings, bold, italic, links, code, lists, tables)", ToolSchemas.createDoc),
+            McpTool("update_doc", "Appends markdown content to an existing Google Doc, rendered as richly formatted text", ToolSchemas.updateDoc),
+            McpTool("create_email_review_doc", "Creates a Google Doc with email content for collaborative review before sending", ToolSchemas.createEmailReviewDoc),
+            // Drive Comments tools
+            McpTool("list_doc_comments", "Lists comments on a Google Doc", ToolSchemas.listDocComments),
+            McpTool("get_doc_comment", "Gets a specific comment with all its replies", ToolSchemas.getDocComment),
+            McpTool("create_doc_comment", "Creates a new comment on a Google Doc", ToolSchemas.createDocComment),
+            McpTool("reply_to_doc_comment", "Replies to an existing comment on a Google Doc", ToolSchemas.replyToDocComment),
+            McpTool("resolve_doc_comment", "Resolves (closes) a comment thread on a Google Doc", ToolSchemas.resolveDocComment),
+            McpTool("delete_doc_comment", "Deletes a comment from a Google Doc", ToolSchemas.deleteDocComment)
         )
 
         val result = ToolListResult(tools)
@@ -273,13 +285,54 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
                     val payload = decodeArgs<GetMeetingNotesArgs>(args)
                     docs.getMeetingNotes(payload)
                 }
+                "read_doc_content" -> {
+                    val payload = decodeArgs<ReadDocContentArgs>(args)
+                    docs.readDocContent(payload)
+                }
+                "get_agenda_items" -> {
+                    val payload = decodeArgs<GetAgendaItemsArgs>(args)
+                    docs.getAgendaItems(payload)
+                }
                 "add_agenda_item" -> {
                     val payload = decodeArgs<AddAgendaItemArgs>(args)
                     docs.addAgendaItem(payload)
                 }
+                "create_doc" -> {
+                    val payload = decodeArgs<CreateDocArgs>(args)
+                    docs.createDoc(payload)
+                }
+                "update_doc" -> {
+                    val payload = decodeArgs<UpdateDocArgs>(args)
+                    docs.updateDoc(payload)
+                }
                 "create_email_review_doc" -> {
                     val payload = decodeArgs<CreateEmailReviewDocArgs>(args)
                     docs.createEmailReviewDoc(payload)
+                }
+                // Drive Comments tools
+                "list_doc_comments" -> {
+                    val payload = decodeArgs<ListDocCommentsArgs>(args)
+                    driveComments.listComments(payload)
+                }
+                "get_doc_comment" -> {
+                    val payload = decodeArgs<GetDocCommentArgs>(args)
+                    driveComments.getComment(payload)
+                }
+                "create_doc_comment" -> {
+                    val payload = decodeArgs<CreateDocCommentArgs>(args)
+                    driveComments.createComment(payload)
+                }
+                "reply_to_doc_comment" -> {
+                    val payload = decodeArgs<ReplyToDocCommentArgs>(args)
+                    driveComments.replyToComment(payload)
+                }
+                "resolve_doc_comment" -> {
+                    val payload = decodeArgs<ResolveDocCommentArgs>(args)
+                    driveComments.resolveComment(payload)
+                }
+                "delete_doc_comment" -> {
+                    val payload = decodeArgs<DeleteDocCommentArgs>(args)
+                    driveComments.deleteComment(payload)
                 }
                 else -> "Unknown tool: ${params.name}"
             }
