@@ -104,6 +104,7 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
             McpTool("add_agenda_item", "Adds an agenda item to the meeting notes document attached to a calendar event", ToolSchemas.addAgendaItem),
             McpTool("create_doc", "Creates a new Google Doc with markdown content rendered as richly formatted text (headings, bold, italic, links, code, lists, tables)", ToolSchemas.createDoc),
             McpTool("update_doc", "Appends markdown content to an existing Google Doc, rendered as richly formatted text", ToolSchemas.updateDoc),
+            McpTool("replace_doc_text", "Replaces text in a Google Doc using find/replace pairs. Supports multiple replacements in a single call with case-sensitive or case-insensitive matching.", ToolSchemas.replaceDocText),
             McpTool("create_email_review_doc", "Creates a Google Doc with email content for collaborative review before sending", ToolSchemas.createEmailReviewDoc),
             // Drive Comments tools
             McpTool("list_doc_comments", "Lists comments on a Google Doc", ToolSchemas.listDocComments),
@@ -337,6 +338,10 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
                 "update_doc" -> {
                     val payload = decodeArgs<UpdateDocArgs>(args)
                     docs.updateDoc(payload)
+                }
+                "replace_doc_text" -> {
+                    val payload = decodeArgs<ReplaceDocTextArgs>(args)
+                    docs.replaceDocText(payload)
                 }
                 "create_email_review_doc" -> {
                     val payload = decodeArgs<CreateEmailReviewDocArgs>(args)

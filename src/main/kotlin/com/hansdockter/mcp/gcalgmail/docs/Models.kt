@@ -46,3 +46,16 @@ data class UpdateDocArgs(
     val fileId: String,
     val content: String
 )
+
+@Serializable
+data class ReplaceDocTextArgs(
+    val fileId: String,
+    val replacements: List<TextReplacement>
+)
+
+@Serializable
+data class TextReplacement(
+    val find: String,
+    val replace: String,
+    val matchCase: Boolean = true
+)

@@ -490,6 +490,24 @@ object ToolSchemas {
         required = listOf("fileId", "content")
     )
 
+    val replaceDocText: JsonObject = objectSchema(
+        mapOf(
+            "fileId" to stringSchema("Google Doc file ID"),
+            "replacements" to arraySchema(
+                objectSchema(
+                    mapOf(
+                        "find" to stringSchema("The text to find in the document"),
+                        "replace" to stringSchema("The replacement text"),
+                        "matchCase" to boolSchema("Whether to match case (default: true)")
+                    ),
+                    required = listOf("find", "replace")
+                ),
+                "List of find/replace pairs to apply"
+            )
+        ),
+        required = listOf("fileId", "replacements")
+    )
+
     val createEmailReviewDoc: JsonObject = objectSchema(
         mapOf(
             "subject" to stringSchema("Email subject (will be used as document title)"),

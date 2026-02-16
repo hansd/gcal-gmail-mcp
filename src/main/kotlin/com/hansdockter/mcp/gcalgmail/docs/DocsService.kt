@@ -59,6 +59,54 @@ class DocsService(private val credential: Credential) {
         }
     }
 
+    /**
+     * Extract text content from a paragraph element, including richLink, dateElement, person chips,
+     * and other non-textRun elements.
+     *
+     * Google Calendar meeting notes use dateElement chips for date headings. These are not typed
+     * in the Java client library, so we extract them from the raw JSON via unknownKeys.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun extractParagraphElementText(element: ParagraphElement): String? {
+        // Standard text runs
+        element.textRun?.content?.let { return it }
+
+        // Date element chips (Google Calendar meeting notes date-picker headings)
+        // The Java client library doesn't have a typed field for dateElement, but GenericJson
+        // stores it in the underlying map. Access via get() which inherits from AbstractMap.
+        // Structure: { "dateElement": { "dateElementProperties": { "displayText": "Feb 23, 2026", ... } } }
+        val dateElement = element["dateElement"] as? Map<String, Any?>
+        if (dateElement != null) {
+            val props = dateElement["dateElementProperties"] as? Map<String, Any?>
+            val displayText = props?.get("displayText") as? String
+            if (displayText != null) return displayText
+        }
+
+        // Rich links (calendar event chips, smart chips, etc.)
+        element.richLink?.let { richLink ->
+            val title = richLink.richLinkProperties?.title
+            if (title != null) return title
+            val uri = richLink.richLinkProperties?.uri
+            if (uri != null) return uri
+        }
+
+        // Person chips
+        element.person?.let { person ->
+            val name = person.personProperties?.name
+            val email = person.personProperties?.email
+            return name ?: email
+        }
+
+        return null
+    }
+
+    /**
+     * Extract the full text of a paragraph by combining all element types.
+     */
+    private fun extractParagraphText(paragraph: Paragraph): String {
+        return paragraph.elements?.mapNotNull { extractParagraphElementText(it) }?.joinToString("") ?: ""
+    }
+
     fun readDocContent(args: ReadDocContentArgs): String {
         val document = docs.documents().get(args.fileId).execute()
         val title = document.title ?: "Untitled"
@@ -67,7 +115,7 @@ class DocsService(private val credential: Credential) {
         val text = buildString {
             for (element in content) {
                 val paragraph = element.paragraph ?: continue
-                val paragraphText = paragraph.elements?.mapNotNull { it.textRun?.content }?.joinToString("") ?: ""
+                val paragraphText = extractParagraphText(paragraph)
                 append(paragraphText)
             }
         }
@@ -134,7 +182,7 @@ class DocsService(private val credential: Credential) {
             if (startIdx >= notesEnd) break
 
             val paragraph = element.paragraph ?: continue
-            val text = paragraph.elements?.mapNotNull { it.textRun?.content }?.joinToString("")?.trim() ?: ""
+            val text = extractParagraphText(paragraph).trim()
             if (text.isNotEmpty()) {
                 items.add(text)
             }
@@ -406,6 +454,108 @@ class DocsService(private val credential: Credential) {
         }
     }
 
+    fun replaceDocText(args: ReplaceDocTextArgs): String {
+        val document = docs.documents().get(args.fileId).execute()
+        val title = document.title ?: "Untitled"
+        val content = document.body?.content ?: emptyList()
+
+        // Build a lookup from find -> replace, respecting case sensitivity
+        val replacementMap = args.replacements.associateBy(
+            { if (it.matchCase) it.find else it.find.lowercase() },
+            { it }
+        )
+
+        // Find paragraphs whose full text matches a find string (exact paragraph match)
+        // Collect matches with their indices, processing in reverse order to preserve indices
+        data class ParagraphMatch(val startIndex: Int, val endIndex: Int, val replacement: TextReplacement)
+        val matches = mutableListOf<ParagraphMatch>()
+
+        for (element in content) {
+            val paragraph = element.paragraph ?: continue
+            val startIdx = element.startIndex ?: continue
+            val endIdx = element.endIndex ?: continue
+            val text = extractParagraphText(paragraph).trimEnd('\n')
+            if (text.isBlank()) continue
+
+            val lookupKey = replacementMap.keys.find { key ->
+                val matchText = if (replacementMap[key]?.matchCase != false) text else text.lowercase()
+                matchText == key
+            }
+            if (lookupKey != null) {
+                matches.add(ParagraphMatch(startIdx, endIdx, replacementMap[lookupKey]!!))
+            }
+        }
+
+        if (matches.isEmpty()) {
+            // Debug: show first 30 paragraph texts to help diagnose matching issues
+            val debugParagraphs = mutableListOf<String>()
+            for (element in content) {
+                val paragraph = element.paragraph ?: continue
+                val text = extractParagraphText(paragraph).trimEnd('\n')
+                if (text.isBlank()) continue
+                val style = paragraph.paragraphStyle?.namedStyleType ?: "unknown"
+                debugParagraphs.add("[$style] \"$text\"")
+                if (debugParagraphs.size >= 30) break
+            }
+            return buildString {
+                appendLine("No matching paragraphs found.")
+                appendLine("Document: $title")
+                appendLine("URL: https://docs.google.com/document/d/${args.fileId}/edit")
+                appendLine()
+                appendLine("First ${debugParagraphs.size} paragraphs in doc:")
+                debugParagraphs.forEach { appendLine("  $it") }
+                appendLine()
+                appendLine("First 5 find strings: ${args.replacements.take(5).map { "\"${it.find}\"" }}")
+            }
+        }
+
+        // Sort in reverse order so that index-based operations don't shift earlier positions
+        matches.sortByDescending { it.startIndex }
+
+        // Build requests: for each match, delete the text content (preserving the paragraph)
+        // then insert the replacement text
+        val requests = mutableListOf<Request>()
+        for (match in matches) {
+            // Delete content within the paragraph (exclude the trailing newline which is the paragraph break)
+            val deleteEnd = match.endIndex - 1  // preserve the paragraph-ending newline
+            if (deleteEnd > match.startIndex) {
+                requests.add(Request().setDeleteContentRange(
+                    DeleteContentRangeRequest().setRange(
+                        Range()
+                            .setStartIndex(match.startIndex)
+                            .setEndIndex(deleteEnd)
+                    )
+                ))
+            }
+            // Insert the replacement text at the paragraph start
+            requests.add(Request().setInsertText(
+                InsertTextRequest()
+                    .setText(match.replacement.replace)
+                    .setLocation(Location().setIndex(match.startIndex))
+            ))
+        }
+
+        docs.documents().batchUpdate(
+            args.fileId,
+            BatchUpdateDocumentRequest().setRequests(requests)
+        ).execute()
+
+        // Count replacements per find string
+        val countByFind = matches.groupBy { it.replacement.find }.mapValues { it.value.size }
+
+        return buildString {
+            appendLine("Text replaced successfully!")
+            appendLine("Document: $title")
+            appendLine("URL: https://docs.google.com/document/d/${args.fileId}/edit")
+            appendLine("Total replacements made: ${matches.size}")
+            appendLine()
+            args.replacements.forEach { replacement ->
+                val count = countByFind[replacement.find] ?: 0
+                appendLine("  \"${replacement.find}\" -> \"${replacement.replace}\": $count occurrences")
+            }
+        }
+    }
+
     fun createEmailReviewDoc(args: CreateEmailReviewDocArgs): String {
         // Create the document
         val doc = Document().setTitle("Email Draft: ${args.subject}")
@@ -518,7 +668,7 @@ class DocsService(private val credential: Credential) {
 
         for (element in content) {
             val paragraph = element.paragraph ?: continue
-            val text = paragraph.elements?.mapNotNull { it.textRun?.content }?.joinToString("") ?: ""
+            val text = extractParagraphText(paragraph)
 
             for (pattern in patterns) {
                 if (text.contains(pattern, ignoreCase = true)) {
@@ -553,7 +703,7 @@ class DocsService(private val credential: Credential) {
             if (startIdx >= sectionEnd) break
 
             val paragraph = element.paragraph ?: continue
-            val text = paragraph.elements?.mapNotNull { it.textRun?.content }?.joinToString("")?.trim() ?: ""
+            val text = extractParagraphText(paragraph).trim()
             if (text.equals("Action items", ignoreCase = true)) {
                 return startIdx
             }
@@ -568,7 +718,7 @@ class DocsService(private val credential: Credential) {
             if (startIdx >= beforeIndex) break    // Stop at next date section boundary
 
             val paragraph = element.paragraph ?: continue
-            val text = paragraph.elements?.mapNotNull { it.textRun?.content }?.joinToString("") ?: ""
+            val text = extractParagraphText(paragraph)
 
             if (text.trim().equals("Notes", ignoreCase = true)) {
                 val endIdx = element.endIndex ?: continue
