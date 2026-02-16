@@ -289,7 +289,7 @@ class DocsService(private val credential: Credential) {
         } else {
             // Date section doesn't exist, create it at start of document
             // Follow Google Calendar meeting notes pattern:
-            // [Date] (HEADING_2)
+            // [Date chip] (HEADING_2)
             // Attendees:
             //
             // Notes
@@ -298,36 +298,75 @@ class DocsService(private val credential: Credential) {
             // Action items
             //
 
-            val insertIndex = 1
-            val dateText = "$dateString\n"
+            // We use a two-phase approach:
+            // Phase 1: Insert a newline at index 1, set it to HEADING_2, then insert the date chip into it.
+            //          The insertDate request inserts a date-picker chip (smart chip) matching what
+            //          Google Calendar creates natively in meeting notes.
+            // Phase 2: After phase 1 executes, re-read the doc to get accurate indices, then insert
+            //          the remaining content (Attendees, Notes, item, Action items).
+
+            // Phase 1: Create the date heading with a date-picker chip
+            val phase1Requests = mutableListOf<Request>()
+
+            // Insert a newline to create the heading paragraph
+            phase1Requests.add(Request().setInsertText(
+                InsertTextRequest()
+                    .setText("\n")
+                    .setLocation(Location().setIndex(1))
+            ))
+            // Style it as HEADING_2
+            phase1Requests.add(Request().setUpdateParagraphStyle(
+                UpdateParagraphStyleRequest()
+                    .setRange(Range()
+                        .setStartIndex(1)
+                        .setEndIndex(2))
+                    .setParagraphStyle(ParagraphStyle().setNamedStyleType("HEADING_2"))
+                    .setFields("namedStyleType")
+            ))
+            // Insert the date chip at position 1 (inside the heading paragraph)
+            // Timestamp format: RFC 3339 at noon UTC, matching Google Calendar's convention
+            val timestamp = eventDate.atStartOfDay(ZoneId.of("UTC"))
+                .plusHours(12)
+                .toInstant()
+                .toString()
+            phase1Requests.add(Request().setInsertDate(
+                InsertDateRequest()
+                    .setLocation(Location().setIndex(1))
+                    .setDateElementProperties(
+                        DateElementProperties()
+                            .setTimestamp(timestamp)
+                            .setDateFormat("DATE_FORMAT_MONTH_DAY_YEAR_ABBREVIATED")
+                            .setTimeFormat("TIME_FORMAT_DISABLED")
+                            .setLocale("en")
+                    )
+            ))
+
+            try {
+                docs.documents().batchUpdate(docId, BatchUpdateDocumentRequest().setRequests(phase1Requests)).execute()
+            } catch (e: Exception) {
+                return "Error creating date heading: ${e.message}"
+            }
+
+            // Phase 2: Re-read doc to get accurate indices after date chip insertion
+            val updatedDocument = docs.documents().get(docId).execute()
+            val updatedContent = updatedDocument.body?.content ?: emptyList()
+
+            // Find the heading we just created (should be the first HEADING_2)
+            val newHeading = findDateHeadingIndex(updatedContent, eventDate)
+                ?: return "Error: could not find the date heading just created."
+
             val attendeesText = "Attendees:\n\n"
             val notesText = "Notes\n"
             val itemText = "${args.item}\n"
             val actionItemsText = "\nAction items\n\n"
 
-            // Insert date heading (HEADING_2)
-            requests.add(Request().setInsertText(
-                InsertTextRequest()
-                    .setText(dateText)
-                    .setLocation(Location().setIndex(insertIndex))
-            ))
-            requests.add(Request().setUpdateParagraphStyle(
-                UpdateParagraphStyleRequest()
-                    .setRange(Range()
-                        .setStartIndex(insertIndex)
-                        .setEndIndex(insertIndex + dateText.length))
-                    .setParagraphStyle(ParagraphStyle().setNamedStyleType("HEADING_2"))
-                    .setFields("namedStyleType")
-            ))
-
             // Insert Attendees section (normal text)
-            var currentIndex = insertIndex + dateText.length
+            var currentIndex = newHeading.endIndex
             requests.add(Request().setInsertText(
                 InsertTextRequest()
                     .setText(attendeesText)
                     .setLocation(Location().setIndex(currentIndex))
             ))
-            // Reset to normal text style for Attendees
             requests.add(Request().setUpdateParagraphStyle(
                 UpdateParagraphStyleRequest()
                     .setRange(Range()
@@ -344,7 +383,6 @@ class DocsService(private val credential: Credential) {
                     .setText(notesText)
                     .setLocation(Location().setIndex(currentIndex))
             ))
-            // Reset to normal text style for Notes
             requests.add(Request().setUpdateParagraphStyle(
                 UpdateParagraphStyleRequest()
                     .setRange(Range()
@@ -368,7 +406,6 @@ class DocsService(private val credential: Credential) {
                         .setEndIndex(currentIndex + itemText.length))
                     .setBulletPreset("BULLET_DISC_CIRCLE_SQUARE")
             ))
-            // Reset to normal text style for agenda item
             requests.add(Request().setUpdateParagraphStyle(
                 UpdateParagraphStyleRequest()
                     .setRange(Range()
@@ -385,7 +422,6 @@ class DocsService(private val credential: Credential) {
                     .setText(actionItemsText)
                     .setLocation(Location().setIndex(currentIndex))
             ))
-            // Reset to normal text style for Action items
             requests.add(Request().setUpdateParagraphStyle(
                 UpdateParagraphStyleRequest()
                     .setRange(Range()
