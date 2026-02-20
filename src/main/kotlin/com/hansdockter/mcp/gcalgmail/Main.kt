@@ -11,8 +11,12 @@ import com.hansdockter.mcp.gcalgmail.tasks.TasksService
 import com.hansdockter.mcp.gcalgmail.server.McpServer
 import com.hansdockter.mcp.gcalgmail.trello.TrelloAuthManager
 import com.hansdockter.mcp.gcalgmail.trello.TrelloService
+import com.hansdockter.mcp.gcalgmail.util.AutoUpdater
 
 fun main(args: Array<String>) {
+    // Check for updates in the background
+    Thread { AutoUpdater.checkAndUpdate() }.apply { isDaemon = true }.start()
+
     val oauth = OAuthManager()
 
     if (args.isNotEmpty() && args[0] == "auth") {
