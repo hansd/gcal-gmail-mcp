@@ -39,8 +39,11 @@ if [ "$NEED_JAVA" = true ]; then
     echo "Downloading Java 21 (Temurin)..."
     curl -L -o "$JDK_PKG" "$JDK_URL"
 
-    echo "Installing Java 21 (requires password)..."
-    sudo installer -pkg "$JDK_PKG" -target /
+    echo ""
+    echo "Opening Java 21 installer..."
+    echo "Please follow the installer steps, then come back here."
+    echo ""
+    open -W "$JDK_PKG"
     rm -f "$JDK_PKG"
 
     # Pick up the new java
