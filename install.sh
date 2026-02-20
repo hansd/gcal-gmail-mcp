@@ -23,21 +23,35 @@ else
 fi
 
 if [ "$NEED_JAVA" = true ]; then
-    echo "Java 21+ is required but not found."
-    if command -v brew &> /dev/null; then
-        echo "Installing Java 21 via Homebrew..."
-        brew install --cask temurin@21
+    echo "Java 21+ is required but not found. Installing..."
+
+    # Detect architecture
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "arm64" ]; then
+        JDK_ARCH="aarch64"
     else
-        echo "Installing Homebrew..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        echo "Installing Java 21 via Homebrew..."
-        brew install --cask temurin@21
+        JDK_ARCH="x64"
     fi
-    # Verify installation
+
+    JDK_URL="https://api.adoptium.net/v3/binary/latest/21/ga/mac/${JDK_ARCH}/jdk/hotspot/normal/eclipse"
+    JDK_PKG="/tmp/temurin-21.pkg"
+
+    echo "Downloading Java 21 (Temurin)..."
+    curl -L -o "$JDK_PKG" "$JDK_URL"
+
+    echo "Installing Java 21 (requires password)..."
+    sudo installer -pkg "$JDK_PKG" -target /
+    rm -f "$JDK_PKG"
+
+    # Pick up the new java
+    export JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || true)
+    export PATH="$JAVA_HOME/bin:$PATH"
+
     if ! java -version 2>&1 | head -1 | grep -q '"2[1-9]\|"[3-9]'; then
-        echo "Error: Java installation may require a new terminal. Close and reopen your terminal, then run this script again."
+        echo "Error: Java installation failed. Please install Java 21 manually from https://adoptium.net/"
         exit 1
     fi
+    echo "Java 21 installed successfully."
 fi
 
 # Download latest JAR from GitHub Releases
