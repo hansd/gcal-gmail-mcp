@@ -12,17 +12,32 @@ echo ""
 mkdir -p "$INSTALL_DIR"
 
 # Check for Java 21+
+NEED_JAVA=false
 if ! command -v java &> /dev/null; then
-    echo "Error: Java is not installed."
-    echo "Install Java 21 or later: https://adoptium.net/"
-    exit 1
+    NEED_JAVA=true
+else
+    JAVA_VERSION=$(java -version 2>&1 | head -1 | sed 's/.*"\([0-9]*\).*/\1/')
+    if [ "$JAVA_VERSION" -lt 21 ] 2>/dev/null; then
+        NEED_JAVA=true
+    fi
 fi
 
-JAVA_VERSION=$(java -version 2>&1 | head -1 | sed 's/.*"\([0-9]*\).*/\1/')
-if [ "$JAVA_VERSION" -lt 21 ] 2>/dev/null; then
-    echo "Error: Java 21 or later is required (found Java $JAVA_VERSION)."
-    echo "Install from: https://adoptium.net/"
-    exit 1
+if [ "$NEED_JAVA" = true ]; then
+    echo "Java 21+ is required but not found."
+    if command -v brew &> /dev/null; then
+        echo "Installing Java 21 via Homebrew..."
+        brew install --cask temurin@21
+    else
+        echo "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        echo "Installing Java 21 via Homebrew..."
+        brew install --cask temurin@21
+    fi
+    # Verify installation
+    if ! java -version 2>&1 | head -1 | grep -q '"2[1-9]\|"[3-9]'; then
+        echo "Error: Java installation may require a new terminal. Close and reopen your terminal, then run this script again."
+        exit 1
+    fi
 fi
 
 # Download latest JAR from GitHub Releases
