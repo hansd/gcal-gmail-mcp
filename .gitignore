@@ -24,4 +24,4 @@ credentials.json
 trello-credentials.json
 
 # Local scripts
-scripts/
+/scripts/

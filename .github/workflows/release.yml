@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,11 +37,30 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
 
+      - name: Build macOS installer
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+
+          # Create staging directory with the JAR
+          mkdir -p staging
+          cp build/libs/gcal-gmail-mcp.jar staging/
+
+          # Build the .pkg
+          pkgbuild \
+            --root staging \
+            --identifier com.hansdockter.gcal-gmail-mcp \
+            --version "$VERSION" \
+            --install-location /tmp/gcal-gmail-mcp-staging \
+            --scripts packaging/scripts \
+            "build/gcal-gmail-mcp-${VERSION}.pkg"
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: ${{ steps.version.outputs.version }}
-          files: build/libs/gcal-gmail-mcp.jar
+          files: |
+            build/libs/gcal-gmail-mcp.jar
+            build/gcal-gmail-mcp-*.pkg
           generate_release_notes: true
           make_latest: true

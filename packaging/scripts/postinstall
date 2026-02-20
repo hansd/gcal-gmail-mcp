@@ -1,0 +1,82 @@
+#!/bin/bash
+set -euo pipefail
+
+# postinstall runs as root after the .pkg installs files to /tmp/gcal-gmail-mcp-staging/
+# We move the JAR to the user's home and do setup.
+
+INSTALL_DIR="$HOME/.gcal-gmail-mcp"
+STAGING_DIR="/tmp/gcal-gmail-mcp-staging"
+JAR_NAME="gcal-gmail-mcp.jar"
+
+# If running as root (from .pkg installer), resolve the real user
+if [ "$(id -u)" -eq 0 ]; then
+    REAL_USER="${USER:-$(stat -f '%Su' /dev/console)}"
+    INSTALL_DIR="$(eval echo ~"$REAL_USER")/.gcal-gmail-mcp"
+fi
+
+mkdir -p "$INSTALL_DIR"
+
+# Move JAR from staging to install dir
+if [ -f "$STAGING_DIR/$JAR_NAME" ]; then
+    cp "$STAGING_DIR/$JAR_NAME" "$INSTALL_DIR/$JAR_NAME"
+    rm -rf "$STAGING_DIR"
+fi
+
+# Fix ownership if running as root
+if [ "$(id -u)" -eq 0 ] && [ -n "${REAL_USER:-}" ]; then
+    chown -R "$REAL_USER" "$INSTALL_DIR"
+fi
+
+# Check for Java 21+
+NEED_JAVA=false
+if ! command -v java &> /dev/null; then
+    NEED_JAVA=true
+else
+    JAVA_VERSION=$(java -version 2>&1 | head -1 | sed 's/.*"\([0-9]*\).*/\1/')
+    if [ "$JAVA_VERSION" -lt 21 ] 2>/dev/null; then
+        NEED_JAVA=true
+    fi
+fi
+
+if [ "$NEED_JAVA" = true ]; then
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "arm64" ]; then
+        JDK_ARCH="aarch64"
+    else
+        JDK_ARCH="x64"
+    fi
+
+    JDK_URL="https://api.adoptium.net/v3/binary/latest/21/ga/mac/${JDK_ARCH}/jdk/hotspot/normal/eclipse"
+    JDK_PKG="/tmp/temurin-21.pkg"
+
+    curl -L -o "$JDK_PKG" "$JDK_URL"
+    open -W "$JDK_PKG"
+    rm -f "$JDK_PKG"
+fi
+
+# Configure Claude Code (if installed)
+if command -v claude &> /dev/null; then
+    # Run as the real user, not root
+    if [ "$(id -u)" -eq 0 ] && [ -n "${REAL_USER:-}" ]; then
+        su "$REAL_USER" -c "claude mcp add gmail-kotlin --scope user -- java -jar \"$INSTALL_DIR/$JAR_NAME\""
+    else
+        claude mcp add gmail-kotlin --scope user -- java -jar "$INSTALL_DIR/$JAR_NAME"
+    fi
+fi
+
+# Show next steps if OAuth credentials are missing
+if [ ! -f "$INSTALL_DIR/gcp-oauth.keys.json" ]; then
+    osascript -e 'display dialog "Installation complete!\n\nNext step: Get the gcp-oauth.keys.json file from your admin and place it at:\n'"$INSTALL_DIR"'/gcp-oauth.keys.json\n\nThen run:\njava -jar '"$INSTALL_DIR/$JAR_NAME"' auth" buttons {"OK"} default button "OK" with title "gcal-gmail-mcp"'
+else
+    if [ ! -f "$INSTALL_DIR/credentials.json" ]; then
+        # Run auth as the real user
+        if [ "$(id -u)" -eq 0 ] && [ -n "${REAL_USER:-}" ]; then
+            su "$REAL_USER" -c "java -jar \"$INSTALL_DIR/$JAR_NAME\" auth"
+        else
+            java -jar "$INSTALL_DIR/$JAR_NAME" auth
+        fi
+    fi
+    osascript -e 'display dialog "Installation complete!\n\nRestart Claude Code to use the MCP server." buttons {"OK"} default button "OK" with title "gcal-gmail-mcp"'
+fi
+
+exit 0
