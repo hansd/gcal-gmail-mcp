@@ -39,24 +39,68 @@ A Model Context Protocol (MCP) server that provides Gmail, Google Calendar, Goog
 - Boards, lists, cards, labels, checklists
 - Custom fields, comments, member assignment
 
-## Prerequisites
-
-- Java 21 or later
-- A Google Cloud project with the required APIs enabled
-- OAuth 2.0 credentials (Desktop app type)
-
-## Installation
-
-### Option A: Download from GitHub Releases (recommended)
+## Quick Install
 
 ```bash
-mkdir -p ~/.gcal-gmail-mcp
-gh release download --repo hansd/gcal-gmail-mcp --pattern '*.jar' -D ~/.gcal-gmail-mcp/
+curl -fsSL https://raw.githubusercontent.com/hansd/gcal-gmail-mcp/main/install.sh | bash
 ```
 
-To update to the latest version, run the same command again.
+This will:
+1. Download the latest JAR to `~/.gcal-gmail-mcp/`
+2. Check for Java 21+
+3. Run authentication (if OAuth credentials are in place)
+4. Configure Claude Code automatically
 
-### Option B: Build from source
+**Before running**, get the `gcp-oauth.keys.json` file from your admin and place it at:
+```
+~/.gcal-gmail-mcp/gcp-oauth.keys.json
+```
+
+### Updating
+
+Run the same install command again to get the latest version.
+
+## Manual Setup
+
+<details>
+<summary>Click to expand manual installation steps</summary>
+
+### Prerequisites
+
+- Java 21 or later ([download](https://adoptium.net/))
+- OAuth credentials file (`gcp-oauth.keys.json`) from your admin
+
+### Step-by-step
+
+1. **Download the JAR:**
+   ```bash
+   mkdir -p ~/.gcal-gmail-mcp
+   curl -L -o ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar \
+     $(curl -s https://api.github.com/repos/hansd/gcal-gmail-mcp/releases/latest \
+       | grep browser_download_url | cut -d '"' -f 4)
+   ```
+
+2. **Place OAuth credentials:**
+   ```bash
+   cp /path/to/gcp-oauth.keys.json ~/.gcal-gmail-mcp/gcp-oauth.keys.json
+   ```
+
+3. **Authenticate:**
+   ```bash
+   java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar auth
+   ```
+
+4. **Configure Claude Code:**
+   ```bash
+   claude mcp add gmail-kotlin --scope user -- java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar
+   ```
+
+</details>
+
+## Building from Source
+
+<details>
+<summary>Click to expand (for developers only)</summary>
 
 ```bash
 git clone https://github.com/hansd/gcal-gmail-mcp.git
@@ -64,68 +108,12 @@ cd gcal-gmail-mcp
 ./gradlew install
 ```
 
-This builds the fat JAR and installs it to `~/.gcal-gmail-mcp/gcal-gmail-mcp.jar`.
-
-## Setup
-
-### 1. Create Google Cloud credentials
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the Gmail API, Google Calendar API, Google Docs API, Google Meet API, Google Tasks API, and Google Sheets API
-4. Go to "Credentials" and create an OAuth 2.0 Client ID (Desktop app type)
-5. Download the credentials JSON file
-
-### 2. Configure OAuth credentials
-
-Place your OAuth credentials file as `gcp-oauth.keys.json` in `~/.gcal-gmail-mcp/`, or set the `GOOGLE_OAUTH_PATH` environment variable to point to a shared location (e.g., `~/.google-oauth/gcp-oauth.keys.json`).
-
-### 3. Authenticate
-
-```bash
-java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar auth
-```
-
-Or with a custom OAuth path:
-
-```bash
-GOOGLE_OAUTH_PATH=/path/to/gcp-oauth.keys.json java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar auth
-```
-
-This will:
-1. Open a browser for Google OAuth consent
-2. Store your credentials in `~/.gcal-gmail-mcp/credentials.json`
-
-### 4. Configure Claude Code
-
-Add the MCP server to Claude Code:
-
-```bash
-claude mcp add gmail-kotlin --scope user -- java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar
-```
-
-If you use a custom OAuth path, set it as an environment variable in your MCP config. Edit `~/.claude.json` and add the `env` block:
-
-```json
-{
-  "mcpServers": {
-    "gmail-kotlin": {
-      "command": "java",
-      "args": ["-jar", "/Users/yourusername/.gcal-gmail-mcp/gcal-gmail-mcp.jar"],
-      "env": {
-        "GOOGLE_OAUTH_PATH": "/Users/yourusername/.google-oauth/gcp-oauth.keys.json"
-      }
-    }
-  }
-}
-```
-
-**Note:** Use absolute paths. Replace `/Users/yourusername` with your actual home directory path.
-
 ### Environment Variables
 
 - `GOOGLE_OAUTH_PATH` - Path to OAuth client credentials JSON (default: `~/.gcal-gmail-mcp/gcp-oauth.keys.json`)
 - `GMAIL_CREDENTIALS_PATH` - Path to store user credentials (default: `~/.gcal-gmail-mcp/credentials.json`)
+
+</details>
 
 ## Available Tools
 
