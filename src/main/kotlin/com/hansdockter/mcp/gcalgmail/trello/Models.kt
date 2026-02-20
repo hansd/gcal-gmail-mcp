@@ -21,6 +21,13 @@ data class GetTrelloBoardArgs(
 )
 
 @Serializable
+data class CreateTrelloBoardArgs(
+    val name: String,
+    val desc: String? = null,
+    val defaultLists: Boolean? = null
+)
+
+@Serializable
 data class SearchTrelloArgs(
     val query: String,
     val modelTypes: String = "cards,boards",

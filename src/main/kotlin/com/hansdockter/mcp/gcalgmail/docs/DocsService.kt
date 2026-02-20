@@ -247,8 +247,9 @@ class DocsService(private val credential: Credential) {
             val notesIndex = findNotesHeadingAfterIndex(content, dateHeading.endIndex, sectionEnd)
 
             if (notesIndex != null) {
-                // Insert bullet item after the Notes heading
-                val insertIndex = notesIndex.endIndex
+                // Insert bullet item at end of Notes section (before "Action items" or next heading)
+                val notesEnd = findSectionEndAfterNotes(content, notesIndex.endIndex, sectionEnd)
+                val insertIndex = notesEnd
                 requests.add(Request().setInsertText(
                     InsertTextRequest()
                         .setText("${args.item}\n")

@@ -91,38 +91,55 @@ class GmailService(private val credential: Credential) {
     }
 
     fun searchEmails(query: String, maxResults: Int = 10): String {
-        val response = gmail.users().messages().list("me").setQ(query).setMaxResults(maxResults.toLong()).execute()
-        val messages = response.messages ?: emptyList()
+        // Phase 1: Collect all message IDs using pagination
+        // Gmail API may return fewer results per page than maxResults, so we must
+        // follow nextPageToken to get the full result set.
+        val allMessages = mutableListOf<Message>()
+        var pageToken: String? = null
+        val remaining = maxResults
 
-        if (messages.isEmpty()) return "No messages found."
+        do {
+            val request = gmail.users().messages().list("me")
+                .setQ(query)
+                .setMaxResults(minOf(remaining - allMessages.size, 500).toLong())
+            if (pageToken != null) request.setPageToken(pageToken)
 
-        // Use batch API to fetch all message details in a single HTTP request
-        // This fixes the N+1 query problem (1 list + N detail fetches -> 1 list + 1 batch)
+            val response = request.execute()
+            val pageMessages = response.messages ?: emptyList()
+            allMessages.addAll(pageMessages)
+            pageToken = response.nextPageToken
+        } while (pageToken != null && allMessages.size < remaining)
+
+        if (allMessages.isEmpty()) return "No messages found."
+
+        // Phase 2: Fetch metadata for all messages using batch API (max 100 per batch)
         val detailsMap = mutableMapOf<String, Message>()
         val errors = mutableListOf<String>()
 
-        val batch: BatchRequest = gmail.batch()
-        val callback = object : JsonBatchCallback<Message>() {
-            override fun onSuccess(message: Message, responseHeaders: HttpHeaders) {
-                detailsMap[message.id] = message
+        allMessages.chunked(100).forEach { chunk ->
+            val batch: BatchRequest = gmail.batch()
+            val callback = object : JsonBatchCallback<Message>() {
+                override fun onSuccess(message: Message, responseHeaders: HttpHeaders) {
+                    detailsMap[message.id] = message
+                }
+
+                override fun onFailure(error: GoogleJsonError, responseHeaders: HttpHeaders) {
+                    errors.add("Failed to fetch message: ${error.message}")
+                }
             }
 
-            override fun onFailure(error: GoogleJsonError, responseHeaders: HttpHeaders) {
-                errors.add("Failed to fetch message: ${error.message}")
+            chunk.forEach { msg ->
+                gmail.users().messages().get("me", msg.id)
+                    .setFormat("metadata")
+                    .setMetadataHeaders(listOf("Subject", "From", "Date"))
+                    .queue(batch, callback)
             }
-        }
 
-        messages.forEach { msg ->
-            gmail.users().messages().get("me", msg.id)
-                .setFormat("metadata")
-                .setMetadataHeaders(listOf("Subject", "From", "Date"))
-                .queue(batch, callback)
+            batch.execute()
         }
-
-        batch.execute()
 
         // Preserve original order from search results
-        val results = messages.mapNotNull { msg ->
+        val results = allMessages.mapNotNull { msg ->
             val detail = detailsMap[msg.id] ?: return@mapNotNull null
             val headers = detail.payload?.headers ?: emptyList()
             val subject = headers.findHeader("Subject")
@@ -133,7 +150,7 @@ class GmailService(private val credential: Credential) {
         }
 
         val errorSuffix = if (errors.isNotEmpty()) "\n\nWarnings:\n${errors.joinToString("\n")}" else ""
-        return results.joinToString("\n") + errorSuffix
+        return "Total results: ${allMessages.size}\n\n" + results.joinToString("\n") + errorSuffix
     }
 
     fun modifyEmail(args: ModifyEmailArgs): String {

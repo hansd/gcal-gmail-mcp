@@ -38,7 +38,7 @@ object TrelloAuthManager {
             error("API key cannot be empty")
         }
 
-        val tokenUrl = "https://trello.com/1/authorize?expiration=never&scope=read,write&response_type=token&key=$apiKey&name=gcal-gmail-mcp"
+        val tokenUrl = "https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&key=$apiKey&name=gcal-gmail-mcp"
 
         println()
         println("Step 2: Authorize and get your token")

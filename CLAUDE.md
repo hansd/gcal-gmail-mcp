@@ -4,13 +4,13 @@ This file provides context for Claude Code sessions working on this project.
 
 ## Project Overview
 
-MCP (Model Context Protocol) server that bridges Google Gmail, Google Calendar, and Google Docs with AI assistants. Exposes 33 tools via JSON-RPC 2.0 over stdin/stdout.
+MCP (Model Context Protocol) server that bridges Google Gmail, Google Calendar, Google Docs, Google Meet, Google Tasks, and Google Sheets with AI assistants. Exposes 53 tools via JSON-RPC 2.0 over stdin/stdout.
 
 ## Tech Stack
 
 - Kotlin 1.9.24, Java 21
 - Ktor 2.3.7 (OAuth callback server)
-- Google API Client libraries (Gmail API v1, Calendar API v3, Docs API v1)
+- Google API Client libraries (Gmail API v1, Calendar API v3, Docs API v1, Meet API v2, Tasks API v1, Sheets API v4)
 - Jakarta Mail 2.0.2 (MIME handling)
 - Kotlinx Serialization & Coroutines
 
@@ -30,6 +30,15 @@ src/main/kotlin/com/hansdockter/mcp/gcalgmail/
 ├── docs/
 │   ├── DocsService.kt         # Meeting notes and email review docs
 │   └── Models.kt              # Docs data classes
+├── meet/
+│   ├── MeetService.kt         # Conference records, transcripts
+│   └── Models.kt              # Meet data classes
+├── tasks/
+│   ├── TasksService.kt        # Task lists and task operations
+│   └── Models.kt              # Tasks data classes
+├── sheets/
+│   ├── SheetsService.kt       # Spreadsheet read/write operations
+│   └── Models.kt              # Sheets data classes
 ├── server/
 │   ├── McpServer.kt           # JSON-RPC protocol handler
 │   ├── Protocol.kt            # MCP protocol data structures
@@ -51,7 +60,13 @@ java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar       # Start MCP server
 
 **Calendar (11):** list_calendar_events, get_calendar_event, create_calendar_event, update_calendar_event, delete_calendar_event, quick_add_calendar_event, respond_to_calendar_event, list_calendars, get_free_busy, list_event_instances, list_event_attachments
 
+**Meet (3):** list_conference_records, get_transcript, list_transcript_entries
+
 **Docs (3):** get_meeting_notes, add_agenda_item, create_email_review_doc
+
+**Tasks (10):** list_task_lists, create_task_list, delete_task_list, list_tasks, get_task, create_task, update_task, delete_task, move_task, clear_completed_tasks
+
+**Sheets (7):** get_spreadsheet, read_sheet_values, read_sheet_multiple_ranges, update_sheet_values, append_sheet_values, create_spreadsheet, create_sheet
 
 ## Environment Variables
 
@@ -64,6 +79,9 @@ java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar       # Start MCP server
 - `gmail.settings.basic` - Manage filters and labels
 - `calendar` - Full calendar access
 - `documents` - Create and edit Google Docs
+- `meetings.space.readonly` - Read conference records and transcripts
+- `tasks` - Full Google Tasks access
+- `spreadsheets` - Read and write Google Sheets
 
 ## Architecture Notes
 

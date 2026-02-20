@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.hansdockter"
-version = "0.1.0"
+version = providers.environmentVariable("RELEASE_VERSION").orElse("0.1.0-dev").get()
 
 repositories {
     mavenCentral()
@@ -31,6 +31,9 @@ dependencies {
     implementation("com.google.apis:google-api-services-calendar:v3-rev20241101-2.0.0")
     implementation("com.google.apis:google-api-services-docs:v1-rev20260114-2.0.0")
     implementation("com.google.apis:google-api-services-drive:v3-rev20250220-2.0.0")
+    implementation("com.google.apis:google-api-services-meet:v2-rev20250421-2.0.0")
+    implementation("com.google.apis:google-api-services-tasks:v1-rev20250415-2.0.0")
+    implementation("com.google.apis:google-api-services-sheets:v4-rev20250106-2.0.0")
 
     implementation("org.commonmark:commonmark:0.24.0")
     implementation("org.commonmark:commonmark-ext-gfm-tables:0.24.0")

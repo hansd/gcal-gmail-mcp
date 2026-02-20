@@ -5,6 +5,9 @@ import com.hansdockter.mcp.gcalgmail.calendar.CalendarService
 import com.hansdockter.mcp.gcalgmail.docs.DocsService
 import com.hansdockter.mcp.gcalgmail.drive.DriveCommentsService
 import com.hansdockter.mcp.gcalgmail.gmail.GmailService
+import com.hansdockter.mcp.gcalgmail.meet.MeetService
+import com.hansdockter.mcp.gcalgmail.sheets.SheetsService
+import com.hansdockter.mcp.gcalgmail.tasks.TasksService
 import com.hansdockter.mcp.gcalgmail.server.McpServer
 import com.hansdockter.mcp.gcalgmail.trello.TrelloAuthManager
 import com.hansdockter.mcp.gcalgmail.trello.TrelloService
@@ -40,6 +43,9 @@ fun main(args: Array<String>) {
     val calendarService = CalendarService(credential)
     val docsService = DocsService(credential)
     val driveCommentsService = DriveCommentsService(credential)
-    val server = McpServer(gmailService, calendarService, docsService, driveCommentsService, trelloService)
+    val meetService = MeetService(credential)
+    val tasksService = TasksService(credential)
+    val sheetsService = SheetsService(credential)
+    val server = McpServer(gmailService, calendarService, docsService, driveCommentsService, meetService, tasksService, sheetsService, trelloService)
     server.run()
 }

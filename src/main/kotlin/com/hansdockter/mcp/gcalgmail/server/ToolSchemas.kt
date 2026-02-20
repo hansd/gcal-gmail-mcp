@@ -573,6 +573,32 @@ object ToolSchemas {
         required = listOf("fileId", "commentId")
     )
 
+    // Meet schemas
+
+    val listConferenceRecords: JsonObject = objectSchema(
+        mapOf(
+            "filter" to stringSchema("EBNF filter expression. Filterable fields: space.meeting_code, space.name, start_time, end_time. Example: start_time>\"2026-02-01T00:00:00Z\""),
+            "pageSize" to numberSchema("Maximum records to return (default: 25, max: 100)"),
+            "pageToken" to stringSchema("Page token for pagination")
+        )
+    )
+
+    val getTranscript: JsonObject = objectSchema(
+        mapOf(
+            "conferenceRecordName" to stringSchema("Conference record resource name (e.g., conferenceRecords/abc123)")
+        ),
+        required = listOf("conferenceRecordName")
+    )
+
+    val listTranscriptEntries: JsonObject = objectSchema(
+        mapOf(
+            "transcriptName" to stringSchema("Transcript resource name (e.g., conferenceRecords/abc/transcripts/def)"),
+            "pageSize" to numberSchema("Maximum entries to return (default: 100, max: 100)"),
+            "pageToken" to stringSchema("Page token for pagination")
+        ),
+        required = listOf("transcriptName")
+    )
+
     // Trello schemas
 
     val listTrelloBoards: JsonObject = objectSchema(
@@ -586,6 +612,15 @@ object ToolSchemas {
             "boardId" to stringSchema("Trello board ID")
         ),
         required = listOf("boardId")
+    )
+
+    val createTrelloBoard: JsonObject = objectSchema(
+        mapOf(
+            "name" to stringSchema("Board name"),
+            "desc" to stringSchema("Board description"),
+            "defaultLists" to boolSchema("Create default lists (To Do, Doing, Done). Default: true")
+        ),
+        required = listOf("name")
     )
 
     val searchTrello: JsonObject = objectSchema(
@@ -784,6 +819,168 @@ object ToolSchemas {
             "checklistId" to stringSchema("Trello checklist ID to delete")
         ),
         required = listOf("checklistId")
+    )
+
+    // Google Tasks schemas
+
+    val listTaskLists: JsonObject = objectSchema(
+        mapOf(
+            "maxResults" to numberSchema("Maximum number of task lists to return (default: 20)"),
+            "pageToken" to stringSchema("Page token for pagination")
+        )
+    )
+
+    val createTaskList: JsonObject = objectSchema(
+        mapOf(
+            "title" to stringSchema("Title for the new task list")
+        ),
+        required = listOf("title")
+    )
+
+    val deleteTaskList: JsonObject = objectSchema(
+        mapOf(
+            "taskListId" to stringSchema("ID of the task list to delete")
+        ),
+        required = listOf("taskListId")
+    )
+
+    val listTasks: JsonObject = objectSchema(
+        mapOf(
+            "taskListId" to stringSchema("Task list ID (default: '@default')"),
+            "maxResults" to numberSchema("Maximum tasks to return (default: 100)"),
+            "pageToken" to stringSchema("Page token for pagination"),
+            "showCompleted" to boolSchema("Include completed tasks (default: true)"),
+            "showHidden" to boolSchema("Include hidden tasks (default: false)"),
+            "dueMin" to stringSchema("Minimum due date (RFC3339 timestamp)"),
+            "dueMax" to stringSchema("Maximum due date (RFC3339 timestamp)")
+        )
+    )
+
+    val getTask: JsonObject = objectSchema(
+        mapOf(
+            "taskListId" to stringSchema("Task list ID (default: '@default')"),
+            "taskId" to stringSchema("Task ID to retrieve")
+        ),
+        required = listOf("taskId")
+    )
+
+    val createTask: JsonObject = objectSchema(
+        mapOf(
+            "taskListId" to stringSchema("Task list ID (default: '@default')"),
+            "title" to stringSchema("Task title"),
+            "notes" to stringSchema("Task notes/description"),
+            "due" to stringSchema("Due date (RFC3339 timestamp)"),
+            "parent" to stringSchema("Parent task ID (to create a subtask)"),
+            "previous" to stringSchema("Previous sibling task ID (for ordering)")
+        ),
+        required = listOf("title")
+    )
+
+    val updateTask: JsonObject = objectSchema(
+        mapOf(
+            "taskListId" to stringSchema("Task list ID (default: '@default')"),
+            "taskId" to stringSchema("Task ID to update"),
+            "title" to stringSchema("New task title"),
+            "notes" to stringSchema("New task notes/description"),
+            "due" to stringSchema("New due date (RFC3339 timestamp)"),
+            "status" to buildJsonObject {
+                put("type", "string")
+                putJsonArray("enum") { add(JsonPrimitive("needsAction")); add(JsonPrimitive("completed")) }
+                put("description", "Task status")
+            },
+            "completed" to stringSchema("Completion date (RFC3339 timestamp, set when marking complete)")
+        ),
+        required = listOf("taskId")
+    )
+
+    val deleteTask: JsonObject = objectSchema(
+        mapOf(
+            "taskListId" to stringSchema("Task list ID (default: '@default')"),
+            "taskId" to stringSchema("Task ID to delete")
+        ),
+        required = listOf("taskId")
+    )
+
+    val moveTask: JsonObject = objectSchema(
+        mapOf(
+            "taskListId" to stringSchema("Task list ID (default: '@default')"),
+            "taskId" to stringSchema("Task ID to move"),
+            "parent" to stringSchema("New parent task ID (to make it a subtask, omit to move to top level)"),
+            "previous" to stringSchema("Previous sibling task ID (for ordering)")
+        ),
+        required = listOf("taskId")
+    )
+
+    val clearCompletedTasks: JsonObject = objectSchema(
+        mapOf(
+            "taskListId" to stringSchema("Task list ID (default: '@default')")
+        )
+    )
+
+    // Google Sheets tools
+
+    val getSpreadsheet: JsonObject = objectSchema(
+        mapOf(
+            "spreadsheetId" to stringSchema("Google Sheets spreadsheet ID")
+        ),
+        required = listOf("spreadsheetId")
+    )
+
+    val readSheetValues: JsonObject = objectSchema(
+        mapOf(
+            "spreadsheetId" to stringSchema("Google Sheets spreadsheet ID"),
+            "range" to stringSchema("A1 notation range (e.g., 'Sheet1!A1:D10', 'A1:B5')"),
+            "valueRenderOption" to stringSchema("How values should be rendered: FORMATTED_VALUE (default), UNFORMATTED_VALUE, or FORMULA"),
+            "dateTimeRenderOption" to stringSchema("How dates should be rendered: FORMATTED_STRING (default) or SERIAL_NUMBER")
+        ),
+        required = listOf("spreadsheetId", "range")
+    )
+
+    val readSheetMultipleRanges: JsonObject = objectSchema(
+        mapOf(
+            "spreadsheetId" to stringSchema("Google Sheets spreadsheet ID"),
+            "ranges" to arraySchema(stringSchema(), "List of A1 notation ranges to read"),
+            "valueRenderOption" to stringSchema("How values should be rendered: FORMATTED_VALUE (default), UNFORMATTED_VALUE, or FORMULA"),
+            "dateTimeRenderOption" to stringSchema("How dates should be rendered: FORMATTED_STRING (default) or SERIAL_NUMBER")
+        ),
+        required = listOf("spreadsheetId", "ranges")
+    )
+
+    val updateSheetValues: JsonObject = objectSchema(
+        mapOf(
+            "spreadsheetId" to stringSchema("Google Sheets spreadsheet ID"),
+            "range" to stringSchema("A1 notation range to update (e.g., 'Sheet1!A1:D10')"),
+            "values" to arraySchema(arraySchema(stringSchema()), "2D array of values (rows of cells)"),
+            "valueInputOption" to stringSchema("How input should be interpreted: USER_ENTERED (default) or RAW")
+        ),
+        required = listOf("spreadsheetId", "range", "values")
+    )
+
+    val appendSheetValues: JsonObject = objectSchema(
+        mapOf(
+            "spreadsheetId" to stringSchema("Google Sheets spreadsheet ID"),
+            "range" to stringSchema("A1 notation range to search for a table to append to (e.g., 'Sheet1!A1:D1')"),
+            "values" to arraySchema(arraySchema(stringSchema()), "2D array of values (rows of cells) to append"),
+            "valueInputOption" to stringSchema("How input should be interpreted: USER_ENTERED (default) or RAW"),
+            "insertDataOption" to stringSchema("How to insert: INSERT_ROWS (default) or OVERWRITE")
+        ),
+        required = listOf("spreadsheetId", "range", "values")
+    )
+
+    val createSpreadsheet: JsonObject = objectSchema(
+        mapOf(
+            "title" to stringSchema("Title for the new spreadsheet"),
+            "sheets" to arraySchema(stringSchema(), "Optional list of sheet/tab names to create")
+        ),
+        required = listOf("title")
+    )
+
+    val createSheet: JsonObject = objectSchema(
+        mapOf(
+            "spreadsheetId" to stringSchema("Google Sheets spreadsheet ID"),
+            "title" to stringSchema("Name for the new sheet/tab")
+        ),
+        required = listOf("spreadsheetId", "title")
     )
 
     // Trello Custom Fields

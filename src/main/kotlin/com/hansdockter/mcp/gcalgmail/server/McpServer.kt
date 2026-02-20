@@ -4,6 +4,9 @@ import com.hansdockter.mcp.gcalgmail.calendar.*
 import com.hansdockter.mcp.gcalgmail.docs.*
 import com.hansdockter.mcp.gcalgmail.drive.*
 import com.hansdockter.mcp.gcalgmail.gmail.*
+import com.hansdockter.mcp.gcalgmail.meet.*
+import com.hansdockter.mcp.gcalgmail.tasks.*
+import com.hansdockter.mcp.gcalgmail.sheets.*
 import com.hansdockter.mcp.gcalgmail.trello.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -28,7 +31,7 @@ private data class ToolCallParams(
     val arguments: JsonElement? = null
 )
 
-class McpServer(private val gmail: GmailService, private val calendar: CalendarService, private val docs: DocsService, private val driveComments: DriveCommentsService, private val trello: TrelloService? = null) {
+class McpServer(private val gmail: GmailService, private val calendar: CalendarService, private val docs: DocsService, private val driveComments: DriveCommentsService, private val meet: MeetService, private val tasksService: TasksService, private val sheetsService: SheetsService, private val trello: TrelloService? = null) {
     fun run() {
         val reader = BufferedReader(InputStreamReader(System.`in`))
         val rawOut = FileOutputStream(FileDescriptor.out)
@@ -112,13 +115,37 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
             McpTool("create_doc_comment", "Creates a new comment on a Google Doc", ToolSchemas.createDocComment),
             McpTool("reply_to_doc_comment", "Replies to an existing comment on a Google Doc", ToolSchemas.replyToDocComment),
             McpTool("resolve_doc_comment", "Resolves (closes) a comment thread on a Google Doc", ToolSchemas.resolveDocComment),
-            McpTool("delete_doc_comment", "Deletes a comment from a Google Doc", ToolSchemas.deleteDocComment)
+            McpTool("delete_doc_comment", "Deletes a comment from a Google Doc", ToolSchemas.deleteDocComment),
+            // Meet tools
+            McpTool("list_conference_records", "Lists recent Google Meet conference records (meetings). Supports time-based filtering. Use get_transcript to find transcript Docs for a conference.", ToolSchemas.listConferenceRecords),
+            McpTool("get_transcript", "Gets transcript metadata for a Google Meet conference, including the Google Docs file ID. Use read_doc_content with the returned document ID to read the full transcript.", ToolSchemas.getTranscript),
+            McpTool("list_transcript_entries", "Lists raw transcript entries (speaker, text, timestamps) from the Meet API. Entries are deleted 30 days after the meeting; use read_doc_content for permanent access.", ToolSchemas.listTranscriptEntries),
+            // Google Tasks tools
+            McpTool("list_task_lists", "Lists all Google Tasks task lists", ToolSchemas.listTaskLists),
+            McpTool("create_task_list", "Creates a new Google Tasks task list", ToolSchemas.createTaskList),
+            McpTool("delete_task_list", "Deletes a Google Tasks task list", ToolSchemas.deleteTaskList),
+            McpTool("list_tasks", "Lists tasks in a Google Tasks task list", ToolSchemas.listTasks),
+            McpTool("get_task", "Gets a specific Google Tasks task", ToolSchemas.getTask),
+            McpTool("create_task", "Creates a new task in a Google Tasks task list", ToolSchemas.createTask),
+            McpTool("update_task", "Updates a Google Tasks task (title, notes, due date, status)", ToolSchemas.updateTask),
+            McpTool("delete_task", "Deletes a Google Tasks task", ToolSchemas.deleteTask),
+            McpTool("move_task", "Moves/reorders a task within a Google Tasks task list", ToolSchemas.moveTask),
+            McpTool("clear_completed_tasks", "Clears all completed tasks from a Google Tasks task list", ToolSchemas.clearCompletedTasks),
+            // Google Sheets tools
+            McpTool("get_spreadsheet", "Gets spreadsheet metadata including title, sheets/tabs, and named ranges", ToolSchemas.getSpreadsheet),
+            McpTool("read_sheet_values", "Reads cell values from a spreadsheet range (e.g., 'Sheet1!A1:D10')", ToolSchemas.readSheetValues),
+            McpTool("read_sheet_multiple_ranges", "Reads cell values from multiple ranges in one call", ToolSchemas.readSheetMultipleRanges),
+            McpTool("update_sheet_values", "Updates cell values in a spreadsheet range", ToolSchemas.updateSheetValues),
+            McpTool("append_sheet_values", "Appends rows after existing data in a spreadsheet range", ToolSchemas.appendSheetValues),
+            McpTool("create_spreadsheet", "Creates a new Google Sheets spreadsheet with optional sheet names", ToolSchemas.createSpreadsheet),
+            McpTool("create_sheet", "Adds a new sheet/tab to an existing spreadsheet", ToolSchemas.createSheet)
         )
 
         val trelloTools = if (trello != null) listOf(
             // Trello tools
             McpTool("list_trello_boards", "List Trello boards for current user", ToolSchemas.listTrelloBoards),
             McpTool("get_trello_board", "Get Trello board details including lists and members", ToolSchemas.getTrelloBoard),
+            McpTool("create_trello_board", "Create a new Trello board", ToolSchemas.createTrelloBoard),
             McpTool("search_trello", "Search across Trello boards and cards", ToolSchemas.searchTrello),
             McpTool("list_trello_lists", "List lists on a Trello board", ToolSchemas.listTrelloLists),
             McpTool("create_trello_list", "Create a new list on a Trello board", ToolSchemas.createTrelloList),
@@ -372,6 +399,89 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
                     val payload = decodeArgs<DeleteDocCommentArgs>(args)
                     driveComments.deleteComment(payload)
                 }
+                // Meet tools
+                "list_conference_records" -> {
+                    val payload = decodeArgs<ListConferenceRecordsArgs>(args)
+                    meet.listConferenceRecords(payload)
+                }
+                "get_transcript" -> {
+                    val payload = decodeArgs<GetTranscriptArgs>(args)
+                    meet.getTranscript(payload)
+                }
+                "list_transcript_entries" -> {
+                    val payload = decodeArgs<ListTranscriptEntriesArgs>(args)
+                    meet.listTranscriptEntries(payload)
+                }
+                // Google Tasks tools
+                "list_task_lists" -> {
+                    val payload = decodeArgs<ListTaskListsArgs>(args)
+                    tasksService.listTaskLists(payload)
+                }
+                "create_task_list" -> {
+                    val payload = decodeArgs<CreateTaskListArgs>(args)
+                    tasksService.createTaskList(payload)
+                }
+                "delete_task_list" -> {
+                    val payload = decodeArgs<DeleteTaskListArgs>(args)
+                    tasksService.deleteTaskList(payload)
+                }
+                "list_tasks" -> {
+                    val payload = decodeArgs<ListTasksArgs>(args)
+                    tasksService.listTasks(payload)
+                }
+                "get_task" -> {
+                    val payload = decodeArgs<GetTaskArgs>(args)
+                    tasksService.getTask(payload)
+                }
+                "create_task" -> {
+                    val payload = decodeArgs<CreateTaskArgs>(args)
+                    tasksService.createTask(payload)
+                }
+                "update_task" -> {
+                    val payload = decodeArgs<UpdateTaskArgs>(args)
+                    tasksService.updateTask(payload)
+                }
+                "delete_task" -> {
+                    val payload = decodeArgs<DeleteTaskArgs>(args)
+                    tasksService.deleteTask(payload)
+                }
+                "move_task" -> {
+                    val payload = decodeArgs<MoveTaskArgs>(args)
+                    tasksService.moveTask(payload)
+                }
+                "clear_completed_tasks" -> {
+                    val payload = decodeArgs<ClearCompletedTasksArgs>(args)
+                    tasksService.clearCompletedTasks(payload)
+                }
+                // Google Sheets tools
+                "get_spreadsheet" -> {
+                    val payload = decodeArgs<GetSpreadsheetArgs>(args)
+                    sheetsService.getSpreadsheet(payload)
+                }
+                "read_sheet_values" -> {
+                    val payload = decodeArgs<ReadSheetValuesArgs>(args)
+                    sheetsService.readSheetValues(payload)
+                }
+                "read_sheet_multiple_ranges" -> {
+                    val payload = decodeArgs<ReadSheetMultipleRangesArgs>(args)
+                    sheetsService.readSheetMultipleRanges(payload)
+                }
+                "update_sheet_values" -> {
+                    val payload = decodeArgs<UpdateSheetValuesArgs>(args)
+                    sheetsService.updateSheetValues(payload)
+                }
+                "append_sheet_values" -> {
+                    val payload = decodeArgs<AppendSheetValuesArgs>(args)
+                    sheetsService.appendSheetValues(payload)
+                }
+                "create_spreadsheet" -> {
+                    val payload = decodeArgs<CreateSpreadsheetArgs>(args)
+                    sheetsService.createSpreadsheet(payload)
+                }
+                "create_sheet" -> {
+                    val payload = decodeArgs<CreateSheetArgs>(args)
+                    sheetsService.createSheet(payload)
+                }
                 // Trello tools
                 "list_trello_boards" -> {
                     val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
@@ -382,6 +492,11 @@ class McpServer(private val gmail: GmailService, private val calendar: CalendarS
                     val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
                     val payload = decodeArgs<GetTrelloBoardArgs>(args)
                     t.getBoard(payload)
+                }
+                "create_trello_board" -> {
+                    val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")
+                    val payload = decodeArgs<CreateTrelloBoardArgs>(args)
+                    t.createBoard(payload)
                 }
                 "search_trello" -> {
                     val t = trello ?: error("Trello not configured. Run 'trello-auth' first.")

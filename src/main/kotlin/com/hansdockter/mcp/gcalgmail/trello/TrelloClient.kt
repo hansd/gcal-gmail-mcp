@@ -49,6 +49,18 @@ class TrelloClient(private val credentials: TrelloCredentials) {
         return handleResponse(response)
     }
 
+    suspend fun putJson(path: String, jsonBody: String): JsonElement {
+        val response = httpClient.put("$baseUrl$path") {
+            url {
+                parameters.append("key", credentials.apiKey)
+                parameters.append("token", credentials.token)
+            }
+            contentType(ContentType.Application.Json)
+            setBody(jsonBody)
+        }
+        return handleResponse(response)
+    }
+
     suspend fun delete(path: String, params: Map<String, String> = emptyMap()): JsonElement {
         val response = httpClient.delete("$baseUrl$path") {
             url {

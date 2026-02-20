@@ -73,6 +73,23 @@ class TrelloService(credentials: TrelloCredentials) {
         }
     }
 
+    fun createBoard(args: CreateTrelloBoardArgs): String = runBlocking {
+        val params = mutableMapOf("name" to args.name)
+        args.desc?.let { params["desc"] = it }
+        args.defaultLists?.let { params["defaultLists"] = it.toString() }
+
+        val b = client.post("/boards", params).jsonObject
+
+        buildString {
+            appendLine("Board created successfully!")
+            appendLine("  Name: ${b.str("name")}")
+            appendLine("  ID: ${b.str("id")}")
+            appendLine("  URL: ${b.str("shortUrl")}")
+            val desc = b.str("desc")
+            if (desc.isNotBlank()) appendLine("  Description: $desc")
+        }
+    }
+
     fun search(args: SearchTrelloArgs): String = runBlocking {
         val params = mutableMapOf(
             "query" to args.query,
@@ -746,17 +763,16 @@ class TrelloService(credentials: TrelloCredentials) {
         // The Trello API uses PUT with a JSON body for custom field updates
         // For list fields: { "idValue": "optionId" }
         // For text/number/date/checkbox: { "value": { "text": "..." } }
-        val params = if (args.idValue != null) {
-            mapOf("idValue" to args.idValue)
+        val jsonBody = if (args.idValue != null) {
+            """{"idValue":"${args.idValue}"}"""
         } else {
-            mapOf("value" to (args.value ?: ""))
+            val escaped = (args.value ?: "").replace("\\", "\\\\").replace("\"", "\\\"")
+            """{"value":{"text":"$escaped"}}"""
         }
 
-        // We need to send JSON body, but our client uses query params.
-        // Use the query param approach which Trello also supports for this endpoint.
-        client.put(
+        client.putJson(
             "/cards/${args.cardId}/customField/${args.customFieldId}/item",
-            params
+            jsonBody
         )
 
         "Custom field updated successfully on card ${args.cardId}."
