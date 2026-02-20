@@ -1,6 +1,6 @@
 # gcal-gmail-mcp
 
-A Model Context Protocol (MCP) server that provides Gmail and Google Calendar access for AI assistants like Claude.
+A Model Context Protocol (MCP) server that provides Gmail, Google Calendar, Google Docs, Google Meet, Google Tasks, Google Sheets, and Trello access for AI assistants like Claude.
 
 ## Features
 
@@ -19,11 +19,52 @@ A Model Context Protocol (MCP) server that provides Gmail and Google Calendar ac
 - List calendars and check free/busy status
 - Support for recurring events, attendees, and Google Meet links
 
+### Google Docs
+- Get and add meeting notes and agenda items
+- Create email review documents
+
+### Google Meet
+- List conference records
+- Get transcripts and transcript entries
+
+### Google Tasks
+- Full CRUD for task lists and tasks
+- Move, reorder, and clear completed tasks
+
+### Google Sheets
+- Read and write cell values
+- Append rows, create spreadsheets and sheets
+
+### Trello
+- Boards, lists, cards, labels, checklists
+- Custom fields, comments, member assignment
+
 ## Prerequisites
 
 - Java 21 or later
-- A Google Cloud project with Gmail and Calendar APIs enabled
+- A Google Cloud project with the required APIs enabled
 - OAuth 2.0 credentials (Desktop app type)
+
+## Installation
+
+### Option A: Download from GitHub Releases (recommended)
+
+```bash
+mkdir -p ~/.gcal-gmail-mcp
+gh release download --repo hansd/gcal-gmail-mcp --pattern '*.jar' -D ~/.gcal-gmail-mcp/
+```
+
+To update to the latest version, run the same command again.
+
+### Option B: Build from source
+
+```bash
+git clone https://github.com/hansd/gcal-gmail-mcp.git
+cd gcal-gmail-mcp
+./gradlew install
+```
+
+This builds the fat JAR and installs it to `~/.gcal-gmail-mcp/gcal-gmail-mcp.jar`.
 
 ## Setup
 
@@ -31,28 +72,15 @@ A Model Context Protocol (MCP) server that provides Gmail and Google Calendar ac
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing one
-3. Enable the Gmail API and Google Calendar API
+3. Enable the Gmail API, Google Calendar API, Google Docs API, Google Meet API, Google Tasks API, and Google Sheets API
 4. Go to "Credentials" and create an OAuth 2.0 Client ID (Desktop app type)
 5. Download the credentials JSON file
 
-### 2. Build and install
-
-```bash
-./gradlew install
-```
-
-This builds the fat JAR and installs it to `~/.gcal-gmail-mcp/gcal-gmail-mcp.jar`.
-
-To check the installed version:
-```bash
-unzip -p ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar META-INF/MANIFEST.MF | grep Implementation-Version
-```
-
-### 3. Authenticate
+### 2. Configure OAuth credentials
 
 Place your OAuth credentials file as `gcp-oauth.keys.json` in `~/.gcal-gmail-mcp/`, or set the `GOOGLE_OAUTH_PATH` environment variable to point to a shared location (e.g., `~/.google-oauth/gcp-oauth.keys.json`).
 
-Then run:
+### 3. Authenticate
 
 ```bash
 java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar auth
@@ -61,33 +89,29 @@ java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar auth
 Or with a custom OAuth path:
 
 ```bash
-GOOGLE_OAUTH_PATH=/Users/yourusername/.google-oauth/gcp-oauth.keys.json java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar auth
+GOOGLE_OAUTH_PATH=/path/to/gcp-oauth.keys.json java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar auth
 ```
 
 This will:
 1. Open a browser for Google OAuth consent
 2. Store your credentials in `~/.gcal-gmail-mcp/credentials.json`
 
-#### Environment Variables
+### 4. Configure Claude Code
 
-- `GOOGLE_OAUTH_PATH` - Path to OAuth client credentials JSON (default: `~/.gcal-gmail-mcp/gcp-oauth.keys.json`)
-- `GMAIL_CREDENTIALS_PATH` - Path to store user credentials (default: `~/.gcal-gmail-mcp/credentials.json`)
+Add the MCP server to Claude Code:
 
-**Note:** Environment variables must use absolute paths (e.g., `/Users/yourusername/...`). Tilde (`~`) expansion is not supported.
+```bash
+claude mcp add gmail-kotlin --scope user -- java -jar ~/.gcal-gmail-mcp/gcal-gmail-mcp.jar
+```
 
-### 4. Configure your MCP client
-
-Add to your MCP client configuration (e.g., `~/.claude/mcp.json` for Claude Code):
+If you use a custom OAuth path, set it as an environment variable in your MCP config. Edit `~/.claude.json` and add the `env` block:
 
 ```json
 {
   "mcpServers": {
-    "gcal-gmail": {
+    "gmail-kotlin": {
       "command": "java",
-      "args": [
-        "-jar",
-        "/Users/yourusername/.gcal-gmail-mcp/gcal-gmail-mcp.jar"
-      ],
+      "args": ["-jar", "/Users/yourusername/.gcal-gmail-mcp/gcal-gmail-mcp.jar"],
       "env": {
         "GOOGLE_OAUTH_PATH": "/Users/yourusername/.google-oauth/gcp-oauth.keys.json"
       }
@@ -98,9 +122,14 @@ Add to your MCP client configuration (e.g., `~/.claude/mcp.json` for Claude Code
 
 **Note:** Use absolute paths. Replace `/Users/yourusername` with your actual home directory path.
 
+### Environment Variables
+
+- `GOOGLE_OAUTH_PATH` - Path to OAuth client credentials JSON (default: `~/.gcal-gmail-mcp/gcp-oauth.keys.json`)
+- `GMAIL_CREDENTIALS_PATH` - Path to store user credentials (default: `~/.gcal-gmail-mcp/credentials.json`)
+
 ## Available Tools
 
-### Gmail Tools
+### Gmail (19 tools)
 | Tool | Description |
 |------|-------------|
 | `send_email` | Send a new email |
@@ -123,7 +152,7 @@ Add to your MCP client configuration (e.g., `~/.claude/mcp.json` for Claude Code
 | `create_filter_from_template` | Create filter from predefined template |
 | `download_attachment` | Download an email attachment |
 
-### Calendar Tools
+### Calendar (11 tools)
 | Tool | Description |
 |------|-------------|
 | `list_calendar_events` | List events with optional filters |
@@ -138,17 +167,91 @@ Add to your MCP client configuration (e.g., `~/.claude/mcp.json` for Claude Code
 | `list_event_instances` | List instances of recurring event |
 | `list_event_attachments` | List event attachments |
 
+### Docs (5 tools)
+| Tool | Description |
+|------|-------------|
+| `get_meeting_notes` | Get meeting notes from a calendar event |
+| `get_agenda_items` | Get agenda items from meeting notes |
+| `add_agenda_item` | Add an agenda item to meeting notes |
+| `create_email_review_doc` | Create a Google Doc for email review |
+| `read_doc_content` | Read full text content of a Google Doc |
+
+### Meet (3 tools)
+| Tool | Description |
+|------|-------------|
+| `list_conference_records` | List recent meeting records |
+| `get_transcript` | Get transcript metadata and Doc ID |
+| `list_transcript_entries` | List raw transcript entries |
+
+### Tasks (10 tools)
+| Tool | Description |
+|------|-------------|
+| `list_task_lists` | List all task lists |
+| `create_task_list` | Create a new task list |
+| `delete_task_list` | Delete a task list |
+| `list_tasks` | List tasks in a task list |
+| `get_task` | Get a specific task |
+| `create_task` | Create a new task |
+| `update_task` | Update a task |
+| `delete_task` | Delete a task |
+| `move_task` | Move/reorder a task |
+| `clear_completed_tasks` | Clear completed tasks from a list |
+
+### Sheets (7 tools)
+| Tool | Description |
+|------|-------------|
+| `get_spreadsheet` | Get spreadsheet metadata |
+| `read_sheet_values` | Read cell values from a range |
+| `read_sheet_multiple_ranges` | Read from multiple ranges |
+| `update_sheet_values` | Update cell values |
+| `append_sheet_values` | Append rows after existing data |
+| `create_spreadsheet` | Create a new spreadsheet |
+| `create_sheet` | Add a new sheet/tab |
+
+### Trello (25 tools)
+| Tool | Description |
+|------|-------------|
+| `list_trello_boards` | List boards |
+| `get_trello_board` | Get board details |
+| `create_trello_board` | Create a board |
+| `search_trello` | Search boards and cards |
+| `list_trello_lists` | List lists on a board |
+| `create_trello_list` | Create a list |
+| `update_trello_list` | Update a list |
+| `archive_trello_list` | Archive a list |
+| `list_trello_cards` | List cards |
+| `get_trello_card` | Get card details |
+| `create_trello_card` | Create a card |
+| `update_trello_card` | Update a card |
+| `move_trello_card` | Move a card |
+| `archive_trello_card` | Archive a card |
+| `add_trello_card_comment` | Add a comment |
+| `list_trello_labels` | List labels |
+| `create_trello_label` | Create a label |
+| `update_trello_label` | Update a label |
+| `delete_trello_label` | Delete a label |
+| `list_trello_board_members` | List board members |
+| `assign_trello_card_members` | Assign members to a card |
+| `create_trello_checklist` | Create a checklist |
+| `get_trello_checklist` | Get checklist details |
+| `add_trello_checklist_item` | Add a checklist item |
+| `update_trello_checklist_item` | Update a checklist item |
+
 ## OAuth Scopes
 
-This server requests the following OAuth scopes:
 - `gmail.modify` - Read, send, and manage emails
 - `gmail.settings.basic` - Manage filters and labels
 - `calendar` - Full calendar access
+- `documents` - Create and edit Google Docs
+- `meetings.space.readonly` - Read conference records and transcripts
+- `tasks` - Full Google Tasks access
+- `spreadsheets` - Read and write Google Sheets
 
 ## Notes
 
 - The `From` header is automatically set to the authenticated Gmail address
 - UI-launched processes (like MCP clients) may not inherit shell environment variables - set `GOOGLE_OAUTH_PATH` explicitly in the MCP server config if needed
+- Trello integration requires a separate API key and token (set via `TRELLO_API_KEY` and `TRELLO_TOKEN` environment variables)
 
 ## License
 
